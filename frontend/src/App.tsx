@@ -7,6 +7,8 @@ import { ExecutiveShell } from './consoles/executive/ExecutiveShell';
 import { ManagerShell } from './consoles/manager/managerShell';
 import { Operations } from './consoles/manager/pages/Operations';
 import { EnterpriseOverview } from './consoles/executive/pages/EnterpriseOverview';
+import { ManagerAccounts } from './consoles/executive/pages/ManagerAccounts';
+import { ProductionLines } from './consoles/executive/pages/ProductionLines';
 
 function App() {
   return (
@@ -16,8 +18,8 @@ function App() {
       <Route element={<ProtectedRoute role="EXECUTIVE" />}>
         <Route path="/executive" element={<ExecutiveShell />}>
           <Route index element={<EnterpriseOverview />} />
-          <Route path="managers" element={<ComingSoon title="Manager Accounts" />} />
-          <Route path="lines" element={<ComingSoon title="Production Lines" />} />
+          <Route path="managers" element={<ManagerAccounts />} />
+          <Route path="lines" element={<ProductionLines />} />
           <Route path="jobs" element={<ComingSoon title="Active Jobs" />} />
           <Route path="analytics" element={<ComingSoon title="Historical Analytics" />} />
         </Route>
