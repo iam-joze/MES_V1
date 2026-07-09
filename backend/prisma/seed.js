@@ -3,20 +3,20 @@ const bcrypt = require('bcryptjs');
 
 const prisma = new PrismaClient();
 
-async function upsertUser({ name, identifier, password, role }) {
+async function upsertUser({ name, identifier, password, role, phone }) {
   const credentialHash = await bcrypt.hash(password, 10);
   return prisma.user.upsert({
     where: { identifier },
-    update: { name, credentialHash, role, isActive: true },
-    create: { name, identifier, credentialHash, role, isActive: true },
+    update: { name, credentialHash, role, phone, isActive: true },
+    create: { name, identifier, credentialHash, role, phone, isActive: true },
   });
 }
 
-async function upsertLine({ lineCode, name, description, targetProduct, isActive, managerId }) {
+async function upsertLine({ lineCode, name, description, targetProduct, targetQuantity, unit, isActive, managerId }) {
   return prisma.productionLine.upsert({
     where: { lineCode },
-    update: { name, description, targetProduct, isActive, managerId },
-    create: { lineCode, name, description, targetProduct, isActive, managerId },
+    update: { name, description, targetProduct, targetQuantity, unit, isActive, managerId },
+    create: { lineCode, name, description, targetProduct, targetQuantity, unit, isActive, managerId },
   });
 }
 
@@ -41,18 +41,21 @@ async function main() {
   const managerA = await upsertUser({
     name: 'Muto John',
     identifier: 'muto12@gmail.com',
+    phone: '+256700111001',
     password: 'manager2024',
     role: 'MANAGER',
   });
   const managerB = await upsertUser({
     name: 'Babirye Janet',
     identifier: 'janet.babirye@dojohubug.com',
+    phone: '+256700111002',
     password: 'manager2024',
     role: 'MANAGER',
   });
   const managerC = await upsertUser({
     name: 'Job Wasswa',
     identifier: 'jobwasswa24@gmail.com',
+    phone: '+256700111003',
     password: 'manager2024',
     role: 'MANAGER',
   });
@@ -74,6 +77,8 @@ async function main() {
     name: 'Line A — Tropical Pulping & Extraction',
     description: 'Primary washing, sorting, and extraction line processing fresh seasonal mangoes and pineapples.',
     targetProduct: 'Mango & Pineapple Concentrate',
+    targetQuantity: 5000,
+    unit: 'kg',
     isActive: true,
     managerId: managerA.id,
   });
@@ -82,6 +87,8 @@ async function main() {
     name: 'Line B — Juice Blending & Pasteurization',
     description: 'Secondary blending and thermal treatment of extracted fruit pulps for shelf-stable juice products.',
     targetProduct: 'Premium Fruit Juice Blend',
+    targetQuantity: 3000,
+    unit: 'L',
     isActive: true,
     managerId: managerB.id,
   });
@@ -90,6 +97,8 @@ async function main() {
     name: 'Line C — Automated Bottling',
     description: 'High-speed bottle filling and capping station with inline cap torque verification.',
     targetProduct: 'Bottled Fruit Beverage',
+    targetQuantity: 10000,
+    unit: 'Units',
     isActive: true,
     managerId: managerB.id,
   });
@@ -98,6 +107,8 @@ async function main() {
     name: 'Line D — Quality Control',
     description: 'Dedicated QC checkpoint for organoleptic testing, viscosity, and microbiological sampling.',
     targetProduct: 'QC Samples',
+    targetQuantity: 500,
+    unit: 'Units',
     isActive: false,
     managerId: managerC.id,
   });
@@ -106,6 +117,8 @@ async function main() {
     name: 'Line E — Packaging & Labeling',
     description: 'End-of-line carton packing, shrink-wrapping, and date-coded labeling.',
     targetProduct: 'Packaged Goods',
+    targetQuantity: 2000,
+    unit: 'Units',
     isActive: true,
     managerId: managerC.id,
   });
