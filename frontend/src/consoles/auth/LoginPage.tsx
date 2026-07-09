@@ -14,7 +14,6 @@ import {
   AlertCircle,
   ArrowRight,
   ShieldCheck,
-  Info,
 } from 'lucide-react';
 import { useAuth, type Role } from '../../contexts/AuthContext';
 
@@ -52,17 +51,6 @@ const tabs: TabConfig[] = [
     icon: <Wrench size={22} strokeWidth={2.5} />,
     helperText: 'Floor production access. Enter your registered mobile number and 4-digit security PIN.',
   },
-];
-
-const DEMO_MANAGERS = [
-  { name: 'Muto John', email: 'muto12@gmail.com' },
-  { name: 'Babirye Janet', email: 'janet.babirye@dojohubug.com' },
-  { name: 'Job Wasswa', email: 'jobwasswa24@gmail.com' },
-];
-
-const DEMO_OPERATORS = [
-  { name: 'Jim Kim', phone: '+256700333222', pin: '2323' },
-  { name: 'Auma Lydia', phone: '+256700456789', pin: '4567' },
 ];
 
 function PinInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
@@ -389,14 +377,6 @@ export function LoginPage() {
                     </button>
                   </div>
                   {errors.password && <p className="text-sm text-danger-600 mt-1.5 font-medium">{errors.password}</p>}
-                  {activeTab === 'manager' && !errors.password && (
-                    <p className="text-sm text-slate-500 mt-1.5 flex items-center gap-1">
-                      Default password for all manager accounts:
-                      <button type="button" onClick={() => setPassword('manager2024')} className="font-mono font-semibold text-navy-700 hover:text-navy-900 underline underline-offset-2 transition-colors">
-                        manager2024
-                      </button>
-                    </p>
-                  )}
                 </div>
               )}
 
@@ -427,76 +407,6 @@ export function LoginPage() {
                 Forgot Credentials? <span className="font-semibold text-navy-600 hover:text-navy-700 cursor-pointer">Contact System Administrator</span>
               </p>
             </form>
-
-            <div className="mt-5 p-4 bg-slate-50 border border-slate-200 rounded-xl">
-              <div className="flex items-center gap-2 mb-3">
-                <Info size={16} className="text-slate-500" strokeWidth={2.5} />
-                <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wide">Demo Test Credentials</h3>
-              </div>
-              <div className="space-y-2 text-sm">
-                {activeTab === 'executive' && (
-                  <div className="flex items-center justify-between p-2.5 bg-white border border-slate-200 rounded-lg">
-                    <div>
-                      <p className="text-xs font-semibold text-slate-500 uppercase">Email</p>
-                      <p className="font-mono text-slate-800">exec@dojohubug.com</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs font-semibold text-slate-500 uppercase">Password</p>
-                      <p className="font-mono text-slate-800">exec2024</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => { setEmail('exec@dojohubug.com'); setPassword('exec2024'); }}
-                      className="px-3 py-1.5 text-xs font-semibold bg-navy-900 text-white rounded-lg hover:bg-navy-800 transition-colors"
-                    >
-                      Autofill
-                    </button>
-                  </div>
-                )}
-                {activeTab === 'manager' && (
-                  <div className="space-y-2">
-                    {DEMO_MANAGERS.map((m) => (
-                      <div key={m.email} className="flex items-center justify-between p-2.5 bg-white border border-slate-200 rounded-lg">
-                        <div>
-                          <p className="text-xs font-semibold text-slate-500 uppercase">{m.name}</p>
-                          <p className="font-mono text-slate-800 text-xs">{m.email}</p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => { setEmail(m.email); setPassword('manager2024'); }}
-                          className="px-3 py-1.5 text-xs font-semibold bg-navy-900 text-white rounded-lg hover:bg-navy-800 transition-colors"
-                        >
-                          Autofill
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {activeTab === 'operator' && (
-                  <div className="space-y-2">
-                    {DEMO_OPERATORS.map((op) => (
-                      <div key={op.phone} className="flex items-center justify-between p-2.5 bg-white border border-slate-200 rounded-lg">
-                        <div>
-                          <p className="text-xs font-semibold text-slate-500 uppercase">{op.name}</p>
-                          <p className="font-mono text-slate-800 text-xs">{op.phone}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-xs font-semibold text-slate-500 uppercase">PIN</p>
-                          <p className="font-mono text-slate-800">{op.pin}</p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => { setPhone(op.phone); setPin(op.pin); }}
-                          className="px-3 py-1.5 text-xs font-semibold bg-navy-900 text-white rounded-lg hover:bg-navy-800 transition-colors"
-                        >
-                          Autofill
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
           </div>
 
           <div className="flex items-center justify-center gap-2 mt-6 text-sm text-slate-400">
