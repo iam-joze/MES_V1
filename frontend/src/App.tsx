@@ -1,16 +1,36 @@
+import { Navigate, Route, Routes } from 'react-router-dom';
+import { LoginPage } from './consoles/auth/LoginPage';
+import { ProtectedRoute } from './shared/components/ProtectedRoute';
+import { ComingSoon } from './shared/components/ComingSoon';
+import { MinimalConsoleShell } from './shared/components/MinimalConsoleShell';
+import { ExecutiveShell } from './consoles/executive/ExecutiveShell';
+import { EnterpriseOverview } from './consoles/executive/pages/EnterpriseOverview';
+
 function App() {
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-      <div className="bg-white p-8 rounded-xl shadow-lg">
-        <h1 className="text-4xl font-bold text-blue-600">
-          Tailwind is working!
-        </h1>
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
 
-        <button className="mt-6 bg-blue-600 text-white px-5 py-3 rounded-lg hover:bg-blue-700">
-          Click Me
-        </button>
-      </div>
-    </div>
+      <Route element={<ProtectedRoute role="EXECUTIVE" />}>
+        <Route path="/executive" element={<ExecutiveShell />}>
+          <Route index element={<EnterpriseOverview />} />
+          <Route path="managers" element={<ComingSoon title="Manager Accounts" />} />
+          <Route path="lines" element={<ComingSoon title="Production Lines" />} />
+          <Route path="jobs" element={<ComingSoon title="Active Jobs" />} />
+          <Route path="analytics" element={<ComingSoon title="Historical Analytics" />} />
+        </Route>
+      </Route>
+
+      <Route element={<ProtectedRoute role="MANAGER" />}>
+        <Route path="/manager" element={<MinimalConsoleShell consoleName="Manager Console" />} />
+      </Route>
+
+      <Route element={<ProtectedRoute role="OPERATOR" />}>
+        <Route path="/operator" element={<MinimalConsoleShell consoleName="Operator Console" />} />
+      </Route>
+
+      <Route path="*" element={<Navigate to="/login" replace />} />
+    </Routes>
   );
 }
 
