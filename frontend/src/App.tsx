@@ -4,6 +4,8 @@ import { ProtectedRoute } from './shared/components/ProtectedRoute';
 import { ComingSoon } from './shared/components/ComingSoon';
 import { MinimalConsoleShell } from './shared/components/MinimalConsoleShell';
 import { ExecutiveShell } from './consoles/executive/ExecutiveShell';
+import { ManagerShell } from './consoles/manager/managerShell';
+import { Operations } from './consoles/manager/pages/Operations';
 import { EnterpriseOverview } from './consoles/executive/pages/EnterpriseOverview';
 
 function App() {
@@ -22,7 +24,13 @@ function App() {
       </Route>
 
       <Route element={<ProtectedRoute role="MANAGER" />}>
-        <Route path="/manager" element={<MinimalConsoleShell consoleName="Manager Console" />} />
+        <Route path="/manager" element={<ManagerShell />}>
+          <Route index element={<Operations />} />
+          <Route path="blueprints" element={<ComingSoon title="Blueprint Library" />} />
+          <Route path="job-builder" element={<ComingSoon title="Job Builder" />} />
+          <Route path="operator-roster" element={<ComingSoon title="Operator Roster" />} />
+          <Route path="faults" element={<ComingSoon title="Fault Records" />} />
+        </Route>
       </Route>
 
       <Route element={<ProtectedRoute role="OPERATOR" />}>
