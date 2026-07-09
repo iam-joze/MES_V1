@@ -57,6 +57,7 @@ model User {
   identifier      String    @unique
   credentialHash  String
   role            Role
+  phone           String?
   isActive        Boolean   @default(true)
   lastLoginAt     DateTime?
   createdAt       DateTime  @default(now())
@@ -82,6 +83,8 @@ model ProductionLine {
   name          String               // e.g. "Tropical Pulping Line"
   description   String?
   targetProduct String?              // e.g. "Mango & Pineapple Concentrate"
+  targetQuantity Int?
+  unit          String?              // e.g. "kg", "L", "Units"
   targetDate    DateTime?
   isActive      Boolean   @default(true)
   createdAt     DateTime  @default(now())
