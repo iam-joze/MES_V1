@@ -63,7 +63,7 @@ model User {
   updatedAt       DateTime  @updatedAt
 
   // Relations
-  managedLine     ProductionLine? @relation("LineManager")
+  managedLines    ProductionLine[] @relation("LineManager")
   assignedStages  JobStage[]      @relation("StageOperator")
   faultsLogged    FaultLog[]      @relation("FaultOperator")
   sessions        ProcessSession[] @relation("SessionOperator")
@@ -81,17 +81,21 @@ model ProductionLine {
   lineCode      String    @unique   // e.g. "LINE-A"
   name          String               // e.g. "Tropical Pulping Line"
   description   String?
+  targetProduct String?              // e.g. "Mango & Pineapple Concentrate"
+  targetDate    DateTime?
   isActive      Boolean   @default(true)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  // Assigned manager (1-to-1)
-  managerId     String?   @unique
+  // Assigned manager. Deliberately many-to-one (not 1-to-1): the reference UI
+  // shows one manager overseeing more than one line, so managerId is not unique.
+  managerId     String?
   manager       User?     @relation("LineManager", fields: [managerId], references: [id])
 
   // Jobs running on this line
   jobs          Job[]
 
+  @@index([managerId])
   @@map("production_lines")
 }
 
