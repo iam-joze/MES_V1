@@ -7,6 +7,7 @@ import { ExecutiveShell } from './consoles/executive/ExecutiveShell';
 import { ManagerShell } from './consoles/manager/managerShell';
 import { Operations } from './consoles/manager/pages/Operations';
 import { EnterpriseOverview } from './consoles/executive/pages/EnterpriseOverview';
+import { BlueprintLibrary } from './consoles/manager/pages/BlueprintLibrary';
 
 function App() {
   return (
@@ -26,7 +27,7 @@ function App() {
       <Route element={<ProtectedRoute role="MANAGER" />}>
         <Route path="/manager" element={<ManagerShell />}>
           <Route index element={<Operations />} />
-          <Route path="blueprints" element={<ComingSoon title="Blueprint Library" />} />
+          <Route path="blueprints" element={<BlueprintLibrary />} />
           <Route path="job-builder" element={<ComingSoon title="Job Builder" />} />
           <Route path="operator-roster" element={<ComingSoon title="Operator Roster" />} />
           <Route path="faults" element={<ComingSoon title="Fault Records" />} />

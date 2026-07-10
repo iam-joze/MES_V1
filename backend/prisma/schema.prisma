@@ -7,9 +7,223 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ─────────────────────────────────────────────
-// ENUMS
-// ─────────────────────────────────────────────
+model User {
+  id             String           @id @default(uuid())
+  name           String
+  identifier     String           @unique
+  credentialHash String
+  role           Role
+  isActive       Boolean          @default(true)
+  lastLoginAt    DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  phone          String?
+  faultsLogged   FaultLog[]       @relation("FaultOperator")
+  assignedStages JobStage[]       @relation("StageOperator")
+  sessions       ProcessSession[] @relation("SessionOperator")
+  managedLines   ProductionLine[] @relation("LineManager")
+
+  @@map("users")
+}
+
+model ProductionLine {
+  id             String    @id @default(uuid())
+  lineCode       String    @unique
+  name           String
+  description    String?
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  managerId      String?
+  targetDate     DateTime?
+  targetProduct  String?
+  targetQuantity Int?
+  unit           String?
+  jobs           Job[]
+  manager        User?     @relation("LineManager", fields: [managerId], references: [id])
+
+  @@index([managerId])
+  @@map("production_lines")
+}
+
+model Blueprint {
+  id                        String                   @id @default(uuid())
+  name                      String
+  description               String?
+  category                  String
+  stationTag                String?
+  estimatedDurationMinutes  Int                      @default(0)
+  isArchived                Boolean                  @default(false)
+  guidelinesEnabled         Boolean                  @default(false)
+  guidelinesContent         String?
+  checklistEnabled          Boolean                  @default(false)
+  checklistValidationTiming String?
+  quantityLoggingEnabled    Boolean                  @default(false)
+  qcFormEnabled             Boolean                  @default(false)
+  faultCategoriesEnabled    Boolean                  @default(false)
+  createdAt                 DateTime                 @default(now())
+  updatedAt                 DateTime                 @updatedAt
+  checklistItems            BlueprintChecklistItem[]
+  faultCategories           BlueprintFaultCategory[]
+  qcQuestions               BlueprintQcQuestion[]
+  quantities                BlueprintQuantity[]
+  stages                    JobStage[]
+
+  @@map("blueprints")
+}
+
+model BlueprintQuantity {
+  id             String                 @id @default(uuid())
+  blueprintId    String
+  metricName     String
+  unitLabel      String
+  minValue       Float?
+  maxValue       Float?
+  inputFrequency QuantityInputFrequency @default(PER_BATCH)
+  sortOrder      Int                    @default(0)
+  createdAt      DateTime               @default(now())
+  blueprint      Blueprint              @relation(fields: [blueprintId], references: [id], onDelete: Cascade)
+
+  @@map("blueprint_quantities")
+}
+
+model BlueprintChecklistItem {
+  id          String    @id @default(uuid())
+  blueprintId String
+  itemText    String
+  isRequired  Boolean   @default(true)
+  sortOrder   Int       @default(0)
+  createdAt   DateTime  @default(now())
+  blueprint   Blueprint @relation(fields: [blueprintId], references: [id], onDelete: Cascade)
+
+  @@map("blueprint_checklist_items")
+}
+
+model BlueprintQcQuestion {
+  id              String    @id @default(uuid())
+  blueprintId     String
+  questionText    String
+  responseType    String
+  numericMinValue Float?
+  numericMaxValue Float?
+  isRequired      Boolean   @default(true)
+  sortOrder       Int       @default(0)
+  createdAt       DateTime  @default(now())
+  blueprint       Blueprint @relation(fields: [blueprintId], references: [id], onDelete: Cascade)
+
+  @@map("blueprint_qc_questions")
+}
+
+model BlueprintFaultCategory {
+  id          String        @id @default(uuid())
+  blueprintId String
+  faultName   String
+  severity    FaultSeverity
+  sortOrder   Int           @default(0)
+  createdAt   DateTime      @default(now())
+  blueprint   Blueprint     @relation(fields: [blueprintId], references: [id], onDelete: Cascade)
+
+  @@map("blueprint_fault_categories")
+}
+
+model Job {
+  id               String          @id @default(uuid())
+  jobId            String          @unique
+  name             String
+  productName      String?
+  targetQuantity   Int             @default(0)
+  unit             String          @default("Units")
+  status           JobStatus       @default(DRAFT)
+  notes            String?
+  targetDate       DateTime?
+  scheduledStartAt DateTime?
+  scheduledEndAt   DateTime?
+  startedAt        DateTime?
+  completedAt      DateTime?
+  createdById      String?
+  lineId           String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  faults           FaultLog[]
+  stages           JobStage[]
+  line             ProductionLine? @relation(fields: [lineId], references: [id])
+
+  @@map("jobs")
+}
+
+model JobStage {
+  id                       String           @id @default(uuid())
+  jobId                    String
+  blueprintId              String?
+  stageOrder               Int
+  stageName                String
+  estimatedDurationMinutes Int              @default(0)
+  stationTag               String?
+  status                   StageStatus      @default(PENDING)
+  notes                    String?
+  operatorId               String?
+  scheduledStartAt         DateTime?
+  scheduledEndAt           DateTime?
+  actualStartedAt          DateTime?
+  actualEndedAt            DateTime?
+  createdAt                DateTime         @default(now())
+  faults                   FaultLog[]
+  blueprint                Blueprint?       @relation(fields: [blueprintId], references: [id])
+  job                      Job              @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  operator                 User?            @relation("StageOperator", fields: [operatorId], references: [id])
+  sessions                 ProcessSession[]
+
+  @@unique([jobId, stageOrder])
+  @@map("job_stages")
+}
+
+model ProcessSession {
+  id         String       @id @default(uuid())
+  stageId    String
+  operatorId String?
+  startedAt  DateTime     @default(now())
+  endedAt    DateTime?
+  notes      String?
+  batches    BatchEntry[]
+  operator   User?        @relation("SessionOperator", fields: [operatorId], references: [id])
+  stage      JobStage     @relation(fields: [stageId], references: [id], onDelete: Cascade)
+
+  @@map("process_sessions")
+}
+
+model BatchEntry {
+  id           String         @id @default(uuid())
+  sessionId    String
+  batchNumber  Int
+  loggedAt     DateTime       @default(now())
+  quantityData Json
+  notes        String?
+  session      ProcessSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, batchNumber])
+  @@map("batch_entries")
+}
+
+model FaultLog {
+  id              String        @id @default(uuid())
+  jobId           String
+  stageId         String?
+  operatorId      String?
+  title           String
+  description     String?
+  severity        FaultSeverity
+  category        String?
+  resolvedAt      DateTime?
+  resolvedBy      String?
+  resolutionNotes String?
+  loggedAt        DateTime      @default(now())
+  createdAt       DateTime      @default(now())
+  job             Job           @relation(fields: [jobId], references: [id])
+  operator        User?         @relation("FaultOperator", fields: [operatorId], references: [id])
+  stage           JobStage?     @relation(fields: [stageId], references: [id])
+
+  @@map("fault_logs")
+}
 
 enum Role {
   EXECUTIVE
@@ -42,346 +256,4 @@ enum QuantityInputFrequency {
   ONCE
   PER_BATCH
   HOURLY
-}
-
-// ─────────────────────────────────────────────
-// USER
-// Supports role-based access for EXECUTIVE,
-// MANAGER, and OPERATOR roles.
-// Identifier: email (corporate) or phone (operators)
-// ─────────────────────────────────────────────
-
-model User {
-  id              String    @id @default(uuid())
-  name            String
-  identifier      String    @unique
-  credentialHash  String
-  role            Role
-  phone           String?
-  isActive        Boolean   @default(true)
-  lastLoginAt     DateTime?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-
-  // Relations
-  managedLines    ProductionLine[] @relation("LineManager")
-  assignedStages  JobStage[]      @relation("StageOperator")
-  faultsLogged    FaultLog[]      @relation("FaultOperator")
-  sessions        ProcessSession[] @relation("SessionOperator")
-
-  @@map("users")
-}
-
-// ─────────────────────────────────────────────
-// PRODUCTION LINE
-// Permanent factory lines assigned to managers.
-// ─────────────────────────────────────────────
-
-model ProductionLine {
-  id            String    @id @default(uuid())
-  lineCode      String    @unique   // e.g. "LINE-A"
-  name          String               // e.g. "Tropical Pulping Line"
-  description   String?
-  targetProduct String?              // e.g. "Mango & Pineapple Concentrate"
-  targetQuantity Int?
-  unit          String?              // e.g. "kg", "L", "Units"
-  targetDate    DateTime?
-  isActive      Boolean   @default(true)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  // Assigned manager. Deliberately many-to-one (not 1-to-1): the reference UI
-  // shows one manager overseeing more than one line, so managerId is not unique.
-  managerId     String?
-  manager       User?     @relation("LineManager", fields: [managerId], references: [id])
-
-  // Jobs running on this line
-  jobs          Job[]
-
-  @@index([managerId])
-  @@map("production_lines")
-}
-
-// ─────────────────────────────────────────────
-// BLUEPRINT
-// Reusable process step template.
-// ─────────────────────────────────────────────
-
-model Blueprint {
-  id                        String    @id @default(uuid())
-  name                      String
-  description               String?
-  category                  String    // e.g. "preparation", "processing", "packaging"
-  stationTag                String?
-  estimatedDurationMinutes  Int       @default(0)
-  isArchived                Boolean   @default(false)
-
-  // Feature toggles
-  guidelinesEnabled         Boolean   @default(false)
-  guidelinesContent         String?
-  checklistEnabled          Boolean   @default(false)
-  checklistValidationTiming String?   // "before_start" | "before_completion" | "both"
-  quantityLoggingEnabled    Boolean   @default(false)
-  qcFormEnabled             Boolean   @default(false)
-  faultCategoriesEnabled    Boolean   @default(false)
-
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  // 1-to-many: one Blueprint can have multiple quantity configurations
-  // (Satisfies Supervisor Comment #2)
-  quantities    BlueprintQuantity[]
-
-  // Checklist items and QC questions
-  checklistItems    BlueprintChecklistItem[]
-  qcQuestions       BlueprintQcQuestion[]
-  faultCategories   BlueprintFaultCategory[]
-
-  // Stages that reference this blueprint
-  stages        JobStage[]
-
-  @@map("blueprints")
-}
-
-// ─────────────────────────────────────────────
-// BLUEPRINT QUANTITY
-// 1-to-many child of Blueprint.
-// Allows a single process template to track
-// multiple distinct measurement variables.
-//
-// Example for a juice extraction blueprint:
-//   → record 1: "Raw Fruit Weight Input"  (kg,  per_batch)
-//   → record 2: "Pure Extracted Yield"    (L,   per_batch)
-//   → record 3: "Waste Pulp"              (kg,  per_batch)
-//
-// (Satisfies Supervisor Comment #2)
-// ─────────────────────────────────────────────
-
-model BlueprintQuantity {
-  id             String                  @id @default(uuid())
-  blueprintId    String
-  blueprint      Blueprint               @relation(fields: [blueprintId], references: [id], onDelete: Cascade)
-
-  metricName     String                  // e.g. "Raw Fruit Weight Input"
-  unitLabel      String                  // e.g. "kg", "L", "units"
-  minValue       Float?
-  maxValue       Float?
-  inputFrequency QuantityInputFrequency  @default(PER_BATCH)
-  sortOrder      Int                     @default(0)
-
-  createdAt      DateTime                @default(now())
-
-  @@map("blueprint_quantities")
-}
-
-model BlueprintChecklistItem {
-  id          String    @id @default(uuid())
-  blueprintId String
-  blueprint   Blueprint @relation(fields: [blueprintId], references: [id], onDelete: Cascade)
-  itemText    String
-  isRequired  Boolean   @default(true)
-  sortOrder   Int       @default(0)
-  createdAt   DateTime  @default(now())
-
-  @@map("blueprint_checklist_items")
-}
-
-model BlueprintQcQuestion {
-  id              String    @id @default(uuid())
-  blueprintId     String
-  blueprint       Blueprint @relation(fields: [blueprintId], references: [id], onDelete: Cascade)
-  questionText    String
-  responseType    String    // "pass_fail" | "numeric" | "free_text"
-  numericMinValue Float?
-  numericMaxValue Float?
-  isRequired      Boolean   @default(true)
-  sortOrder       Int       @default(0)
-  createdAt       DateTime  @default(now())
-
-  @@map("blueprint_qc_questions")
-}
-
-model BlueprintFaultCategory {
-  id          String    @id @default(uuid())
-  blueprintId String
-  blueprint   Blueprint @relation(fields: [blueprintId], references: [id], onDelete: Cascade)
-  faultName   String
-  severity    FaultSeverity
-  sortOrder   Int       @default(0)
-  createdAt   DateTime  @default(now())
-
-  @@map("blueprint_fault_categories")
-}
-
-// ─────────────────────────────────────────────
-// JOB
-// Multi-step production pipeline built by managers.
-// ─────────────────────────────────────────────
-
-model Job {
-  id             String     @id @default(uuid())
-  jobId          String     @unique  // human-readable: "JOB-401"
-  name           String
-  productName    String?
-  targetQuantity Int        @default(0)
-  unit           String     @default("Units")
-  status         JobStatus  @default(DRAFT)
-  notes          String?
-  targetDate     DateTime?
-
-  // Scheduling
-  scheduledStartAt  DateTime?
-  scheduledEndAt    DateTime?
-  startedAt         DateTime?
-  completedAt       DateTime?
-
-  // Ownership
-  createdById    String?
-  lineId         String?
-  line           ProductionLine? @relation(fields: [lineId], references: [id])
-
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
-
-  // Stages (ordered pipeline steps)
-  stages         JobStage[]
-  faults         FaultLog[]
-
-  @@map("jobs")
-}
-
-// ─────────────────────────────────────────────
-// JOB STAGE
-// A single ordered step within a job pipeline.
-// Each active step is assigned to one floor operator.
-// ─────────────────────────────────────────────
-
-model JobStage {
-  id                       String      @id @default(uuid())
-  jobId                    String
-  job                      Job         @relation(fields: [jobId], references: [id], onDelete: Cascade)
-
-  blueprintId              String?
-  blueprint                Blueprint?  @relation(fields: [blueprintId], references: [id])
-
-  stageOrder               Int
-  stageName                String
-  estimatedDurationMinutes Int         @default(0)
-  stationTag               String?
-  status                   StageStatus @default(PENDING)
-  notes                    String?
-
-  // Assigned operator (one per active stage)
-  operatorId               String?
-  operator                 User?       @relation("StageOperator", fields: [operatorId], references: [id])
-
-  // Timing
-  scheduledStartAt         DateTime?
-  scheduledEndAt           DateTime?
-  actualStartedAt          DateTime?
-  actualEndedAt            DateTime?
-
-  createdAt                DateTime    @default(now())
-
-  // Process sessions logged against this stage
-  sessions                 ProcessSession[]
-
-  // Faults raised during this stage
-  faults                   FaultLog[]
-
-  @@unique([jobId, stageOrder])
-  @@map("job_stages")
-}
-
-// ─────────────────────────────────────────────
-// PROCESS SESSION
-// Upgrades single-record sessions into a 1-to-many
-// batch entry model for long-running processes.
-//
-// One ProcessSession groups multiple BatchEntry
-// records, each representing one batch run within
-// the same production session. The quantityData
-// JSON field captures all multi-variable measurements
-// for that specific batch.
-//
-// Example for a juice extraction stage session:
-//   Session #1 (stageId: xyz, operatorId: abc)
-//     └── BatchEntry #1: { "Raw Fruit Weight Input": 120,
-//                          "Pure Extracted Yield": 95,
-//                          "Waste Pulp": 18 }
-//     └── BatchEntry #2: { "Raw Fruit Weight Input": 115,
-//                          "Pure Extracted Yield": 91,
-//                          "Waste Pulp": 19 }
-//
-// (Satisfies Supervisor Comment #3)
-// ─────────────────────────────────────────────
-
-model ProcessSession {
-  id           String   @id @default(uuid())
-  stageId      String
-  stage        JobStage @relation(fields: [stageId], references: [id], onDelete: Cascade)
-
-  operatorId   String?
-  operator     User?    @relation("SessionOperator", fields: [operatorId], references: [id])
-
-  startedAt    DateTime @default(now())
-  endedAt      DateTime?
-  notes        String?
-
-  // 1-to-many: one session contains multiple batch records
-  batches      BatchEntry[]
-
-  @@map("process_sessions")
-}
-
-model BatchEntry {
-  id           String         @id @default(uuid())
-  sessionId    String
-  session      ProcessSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-
-  batchNumber  Int            // sequential: 1, 2, 3 ...
-  loggedAt     DateTime       @default(now())
-
-  // JSON block storing all quantity variables for this batch.
-  // Shape: { [metricName: string]: number }
-  // e.g. { "Raw Fruit Weight Input": 120, "Pure Extracted Yield": 95, "Waste Pulp": 18 }
-  quantityData Json
-
-  notes        String?
-
-  @@unique([sessionId, batchNumber])
-  @@map("batch_entries")
-}
-
-// ─────────────────────────────────────────────
-// FAULT LOG
-// Factory exception records with severity tiers.
-// Tied to an active job and optionally a specific stage.
-// ─────────────────────────────────────────────
-
-model FaultLog {
-  id           String        @id @default(uuid())
-  jobId        String
-  job          Job           @relation(fields: [jobId], references: [id])
-
-  stageId      String?
-  stage        JobStage?     @relation(fields: [stageId], references: [id])
-
-  operatorId   String?
-  operator     User?         @relation("FaultOperator", fields: [operatorId], references: [id])
-
-  title        String
-  description  String?
-  severity     FaultSeverity
-  category     String?       // e.g. "machine_jam", "material_delay"
-
-  // Resolution
-  resolvedAt       DateTime?
-  resolvedBy       String?   // name of resolving manager
-  resolutionNotes  String?
-
-  loggedAt     DateTime      @default(now())
-  createdAt    DateTime      @default(now())
-
-  @@map("fault_logs")
 }

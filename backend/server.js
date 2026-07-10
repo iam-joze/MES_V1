@@ -7,8 +7,10 @@ const morgan = require('morgan');
 
 const authRoutes = require('./routes/authRoutes');
 const executiveRoutes = require('./routes/executiveRoutes');
+const managerRoutes = require('./routes/managerRoutes');
 const accountRoutes = require('./routes/accountRoutes');
 const lineRoutes = require('./routes/lineRoutes');
+const blueprintRoutes = require('./routes/blueprintRoutes');
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -25,7 +27,9 @@ app.get('/', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/executive', executiveRoutes);
 app.use('/api/executive/managers', accountRoutes);
+app.use('/api/manager', managerRoutes);
 app.use('/api/executive/lines', lineRoutes);
+app.use('/api/blueprints', blueprintRoutes);
 
 app.use((req, res) => {
     res.status(404).json({ message: 'Route not found' });
