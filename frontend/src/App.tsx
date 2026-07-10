@@ -28,7 +28,7 @@ function App() {
       <Route element={<ProtectedRoute role="MANAGER" />}>
         <Route path="/manager" element={<ManagerShell />}>
           <Route index element={<Operations />} />
-          <Route path="blueprints" element={<ComingSoon title="Blueprint Library" />} />
+          <Route path="blueprints" element={<BlueprintLibrary />} />
           <Route path="job-builder" element={<ComingSoon title="Job Builder" />} />
           <Route path="operator-roster" element={<ComingSoon title="Operator Roster" />} />
           <Route path="faults" element={<ComingSoon title="Fault Records" />} />
