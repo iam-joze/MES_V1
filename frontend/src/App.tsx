@@ -6,6 +6,7 @@ import { MinimalConsoleShell } from './shared/components/MinimalConsoleShell';
 import { ExecutiveShell } from './consoles/executive/ExecutiveShell';
 import { ManagerShell } from './consoles/manager/ManagerShell';
 import { Operations } from './consoles/manager/pages/Operations';
+import { BlueprintLibrary } from './consoles/manager/pages/BlueprintLibrary';
 import { EnterpriseOverview } from './consoles/executive/pages/EnterpriseOverview';
 import { ManagerAccounts } from './consoles/executive/pages/ManagerAccounts';
 import { ProductionLines } from './consoles/executive/pages/ProductionLines';
