@@ -91,30 +91,27 @@ export function ManagerShell() {
             />
           </div>
 
-          <div className="flex items-center gap-3 flex-shrink-0">
-            <button
-              onClick={() => setEmergencyNotice(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-danger-600 hover:bg-danger-700 text-white font-semibold rounded-lg shadow-sm hover:shadow-md transition-all border-2 border-danger-700"
-            >
-              <AlertOctagon size={18} />
-              <span className="text-sm tracking-wide">EMERGENCY STOP</span>
-            </button>
+          <button
+            onClick={() => setEmergencyNotice(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-danger-600 hover:bg-danger-700 text-white font-semibold rounded-lg shadow-sm hover:shadow-md transition-all border-2 border-danger-700"
+          >
+            <AlertOctagon size={18} />
+            <span className="text-sm tracking-wide">EMERGENCY STOP</span>
+          </button>
 
-            <button className="relative p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
-              <Bell size={20} strokeWidth={2.5} />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-danger-500 rounded-full" />
-            </button>
+          <button className="relative p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
+            <Bell size={20} strokeWidth={2.5} />
+            <span className="absolute top-1 right-1 w-2 h-2 bg-danger-500 rounded-full" />
+          </button>
 
-            <button className="flex items-center gap-2 p-1.5 hover:bg-slate-100 rounded-lg transition-colors">
-              <div className="w-8 h-8 rounded-full bg-navy-600 flex items-center justify-center flex-shrink-0">
-                <User size={16} className="text-white" />
-              </div>
-              <div className="hidden sm:block text-left">
-                <p className="text-sm font-medium text-slate-900 leading-tight">{user?.name}</p>
-                <p className="text-xs text-slate-500 leading-tight">Manager</p>
-              </div>
-              <ChevronDown size={16} className="text-slate-400" />
-            </button>
+          <div className="flex items-center gap-2 pl-2">
+            <div className="w-8 h-8 rounded-full bg-navy-600 flex items-center justify-center">
+              <User size={16} className="text-white" />
+            </div>
+            <div className="hidden sm:block text-left">
+              <p className="text-sm font-medium text-slate-900 leading-tight">{user?.name}</p>
+              <p className="text-xs text-slate-500 leading-tight">Manager</p>
+            </div>
           </div>
         </header>
 

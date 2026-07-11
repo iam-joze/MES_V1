@@ -4,7 +4,7 @@ import { ProtectedRoute } from './shared/components/ProtectedRoute';
 import { ComingSoon } from './shared/components/ComingSoon';
 import { MinimalConsoleShell } from './shared/components/MinimalConsoleShell';
 import { ExecutiveShell } from './consoles/executive/ExecutiveShell';
-import { ManagerShell } from './consoles/manager/managerShell';
+import { ManagerShell } from './consoles/manager/ManagerShell';
 import { Operations } from './consoles/manager/pages/Operations';
 import { EnterpriseOverview } from './consoles/executive/pages/EnterpriseOverview';
 import { ManagerAccounts } from './consoles/executive/pages/ManagerAccounts';
