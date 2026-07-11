@@ -4,9 +4,10 @@ import { ProtectedRoute } from './shared/components/ProtectedRoute';
 import { ComingSoon } from './shared/components/ComingSoon';
 import { MinimalConsoleShell } from './shared/components/MinimalConsoleShell';
 import { ExecutiveShell } from './consoles/executive/ExecutiveShell';
-import { ManagerShell } from './consoles/manager/ManagerShell';
+import { ManagerShell } from './consoles/manager/managerShell';
 import { Operations } from './consoles/manager/pages/Operations';
 import { BlueprintLibrary } from './consoles/manager/pages/BlueprintLibrary';
+import JobBuilder from './consoles/manager/pages/JobBuilder';
 import { EnterpriseOverview } from './consoles/executive/pages/EnterpriseOverview';
 import { ManagerAccounts } from './consoles/executive/pages/ManagerAccounts';
 import { ProductionLines } from './consoles/executive/pages/ProductionLines';
@@ -30,7 +31,7 @@ function App() {
         <Route path="/manager" element={<ManagerShell />}>
           <Route index element={<Operations />} />
           <Route path="blueprints" element={<BlueprintLibrary />} />
-          <Route path="job-builder" element={<ComingSoon title="Job Builder" />} />
+          <Route path="job-builder" element={<JobBuilder />} />
           <Route path="operator-roster" element={<ComingSoon title="Operator Roster" />} />
           <Route path="faults" element={<ComingSoon title="Fault Records" />} />
         </Route>

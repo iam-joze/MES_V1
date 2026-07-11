@@ -134,10 +134,25 @@ async function resolveFault(req, res) {
   }
 }
 
+async function getOperators(req, res) {
+  try {
+    const operators = await prisma.user.findMany({
+      where: { role: 'OPERATOR', isActive: true },
+      select: { id: true, name: true, identifier: true, phone: true },
+      orderBy: { name: 'asc' },
+    });
+    res.json(operators);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Failed to fetch operators' });
+  }
+}
+
 module.exports = {
   getLines,
   getMetrics,
   getActiveJobs,
   getAlerts,
   resolveFault,
+  getOperators,
 };
