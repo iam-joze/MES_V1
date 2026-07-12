@@ -1,16 +1,16 @@
 # dependencies
 node_modules/
 
-# env files
+# env file(s)
 .env
 
-# build outputs
+# build output
 dist/
 build/
 
 # logs
 npm-debug.log*
 
-# OS files
+# OS file(s)
 .DS_Store
 Thumbs.db
