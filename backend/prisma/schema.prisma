@@ -18,6 +18,7 @@ model User {
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
   phone          String?
+  skills         String[]         @default([])
   faultsLogged   FaultLog[]       @relation("FaultOperator")
   assignedStages JobStage[]       @relation("StageOperator")
   sessions       ProcessSession[] @relation("SessionOperator")

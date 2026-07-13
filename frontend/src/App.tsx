@@ -11,6 +11,7 @@ import JobBuilder from './consoles/manager/pages/JobBuilder';
 import { EnterpriseOverview } from './consoles/executive/pages/EnterpriseOverview';
 import { ManagerAccounts } from './consoles/executive/pages/ManagerAccounts';
 import { ProductionLines } from './consoles/executive/pages/ProductionLines';
+import { OperatorRoster } from './consoles/manager/pages/OperatorRoster';
 
 function App() {
   return (
@@ -32,7 +33,7 @@ function App() {
           <Route index element={<Operations />} />
           <Route path="blueprints" element={<BlueprintLibrary />} />
           <Route path="job-builder" element={<JobBuilder />} />
-          <Route path="operator-roster" element={<ComingSoon title="Operator Roster" />} />
+          <Route path="operator-roster" element={<OperatorRoster />} />
           <Route path="faults" element={<ComingSoon title="Fault Records" />} />
         </Route>
       </Route>
