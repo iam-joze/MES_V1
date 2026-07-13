@@ -10,6 +10,6 @@ router.get('/metrics', authenticateToken, requireRole('MANAGER'), managerControl
 router.get('/jobs', authenticateToken, requireRole('MANAGER'), managerController.getActiveJobs);
 router.get('/alerts', authenticateToken, requireRole('MANAGER'), managerController.getAlerts);
 router.patch('/faults/:id/resolve', authenticateToken, requireRole('MANAGER'), managerController.resolveFault);
-router.get('/operators', managerController.getOperators)
+router.get('/operators', authenticateToken, requireRole('MANAGER'), managerController.getOperators);
 
 module.exports = router;
