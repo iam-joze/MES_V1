@@ -45,6 +45,36 @@ async function createLine(req, res) {
   }
 }
 
+async function updateLine(req, res) {
+  try {
+    const { name, description, targetProduct, targetQuantity, unit, isActive } = req.body;
+
+    const data = {};
+    if (name !== undefined) {
+      if (!name.trim()) return res.status(400).json({ message: 'Line name cannot be empty' });
+      data.name = name.trim();
+    }
+    if (description !== undefined) data.description = description?.trim() || null;
+    if (targetProduct !== undefined) data.targetProduct = targetProduct?.trim() || null;
+    if (targetQuantity !== undefined) data.targetQuantity = targetQuantity === null || targetQuantity === '' ? null : Number(targetQuantity);
+    if (unit !== undefined) data.unit = unit?.trim() || null;
+    if (isActive !== undefined) data.isActive = Boolean(isActive);
+
+    const line = await prisma.productionLine.update({
+      where: { id: req.params.id },
+      data,
+      include: { manager: { select: { id: true, name: true, identifier: true } } },
+    });
+
+    return res.status(200).json(line);
+  } catch (error) {
+    if (error.code === 'P2025') {
+      return res.status(404).json({ message: 'Production line not found' });
+    }
+    return res.status(500).json({ message: 'Failed to update production line', error: error.message });
+  }
+}
+
 async function assignManager(req, res) {
   try {
     const { managerId } = req.body;
@@ -71,5 +101,6 @@ async function assignManager(req, res) {
 module.exports = {
   listLines,
   createLine,
+  updateLine,
   assignManager,
 };

@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Activity, Wrench, Users, Layers, Plus, Package, UserCog, Loader2, AlertTriangle } from 'lucide-react';
+import { Activity, Wrench, Users, Layers, Plus, Package, UserCog, Pencil, Loader2, AlertTriangle } from 'lucide-react';
 import { api } from '../../../shared/lib/api';
 import { formatDate, initials } from '../../../shared/lib/formatters';
 import { CreateLineModal } from '../components/CreateLineModal';
 import { ReassignManagerModal } from '../components/ReassignManagerModal';
+import { EditLineModal } from '../components/EditLineModal';
 import type { ManagerAccount } from '../components/AddManagerModal';
 
 export interface ProductionLine {
@@ -38,6 +39,7 @@ export function ProductionLines() {
   const [error, setError] = useState<string | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [reassignTarget, setReassignTarget] = useState<ProductionLine | null>(null);
+  const [editTarget, setEditTarget] = useState<ProductionLine | null>(null);
 
   const loadLines = () => {
     api
@@ -62,6 +64,11 @@ export function ProductionLines() {
   const handleAssigned = (updated: ProductionLine) => {
     setLines((prev) => prev?.map((l) => (l.id === updated.id ? updated : l)) ?? null);
     setReassignTarget(null);
+  };
+
+  const handleUpdated = (updated: ProductionLine) => {
+    setLines((prev) => prev?.map((l) => (l.id === updated.id ? updated : l)) ?? null);
+    setEditTarget(null);
   };
 
   const activeCount = lines?.filter((l) => l.isActive).length ?? 0;
@@ -163,13 +170,22 @@ export function ProductionLines() {
 
                 <p className="text-[11px] text-slate-400 mb-3">Created {formatDate(line.createdAt)}</p>
 
-                <button
-                  onClick={() => setReassignTarget(line)}
-                  className="mt-auto flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold transition-colors"
-                >
-                  <UserCog size={16} strokeWidth={2.5} />
-                  Reassign Manager
-                </button>
+                <div className="mt-auto flex items-center gap-2">
+                  <button
+                    onClick={() => setEditTarget(line)}
+                    className="flex items-center justify-center gap-2 flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold transition-colors"
+                  >
+                    <Pencil size={16} strokeWidth={2.5} />
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => setReassignTarget(line)}
+                    className="flex items-center justify-center gap-2 flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold transition-colors"
+                  >
+                    <UserCog size={16} strokeWidth={2.5} />
+                    Reassign
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -177,6 +193,7 @@ export function ProductionLines() {
       )}
 
       {isCreateOpen && <CreateLineModal onClose={() => setIsCreateOpen(false)} onCreated={handleCreated} />}
+      {editTarget && <EditLineModal line={editTarget} onClose={() => setEditTarget(null)} onUpdated={handleUpdated} />}
       {reassignTarget && (
         <ReassignManagerModal
           line={reassignTarget}
