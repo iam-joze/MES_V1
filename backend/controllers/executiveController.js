@@ -50,6 +50,68 @@ async function getOverview(req, res) {
   }
 }
 
+async function getJobs(req, res) {
+  try {
+    const jobs = await prisma.job.findMany({
+      include: {
+        line: {
+          select: {
+            id: true,
+            lineCode: true,
+            name: true,
+            manager: { select: { id: true, name: true } },
+          },
+        },
+        stages: {
+          orderBy: { stageOrder: 'asc' },
+          include: { operator: { select: { name: true } } },
+        },
+        faults: { where: { resolvedAt: null }, select: { id: true, severity: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const shaped = jobs.map((job) => ({
+      id: job.id,
+      jobId: job.jobId,
+      name: job.name,
+      productName: job.productName,
+      targetQuantity: job.targetQuantity,
+      unit: job.unit,
+      status: job.status,
+      scheduledStartAt: job.scheduledStartAt,
+      scheduledEndAt: job.scheduledEndAt,
+      startedAt: job.startedAt,
+      completedAt: job.completedAt,
+      createdAt: job.createdAt,
+      line: job.line
+        ? {
+            id: job.line.id,
+            lineCode: job.line.lineCode,
+            name: job.line.name,
+            managerName: job.line.manager?.name ?? null,
+          }
+        : null,
+      stages: job.stages.map((s) => ({
+        id: s.id,
+        stageOrder: s.stageOrder,
+        stageName: s.stageName,
+        status: s.status,
+        stationTag: s.stationTag,
+        estimatedDurationMinutes: s.estimatedDurationMinutes,
+        operatorName: s.operator?.name ?? null,
+      })),
+      openFaultCount: job.faults.length,
+      criticalFaultCount: job.faults.filter((f) => f.severity === 'CRITICAL').length,
+    }));
+
+    return res.status(200).json({ jobs: shaped });
+  } catch (error) {
+    return res.status(500).json({ message: 'Failed to load jobs', error: error.message });
+  }
+}
+
 module.exports = {
   getOverview,
+  getJobs,
 };
