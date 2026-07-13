@@ -9,6 +9,7 @@ router.use(authenticateToken, requireRole('EXECUTIVE'));
 
 router.get('/', lineController.listLines);
 router.post('/', lineController.createLine);
+router.patch('/:id', lineController.updateLine);
 router.patch('/:id/manager', lineController.assignManager);
 
 module.exports = router;
