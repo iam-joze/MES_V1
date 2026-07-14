@@ -41,11 +41,18 @@ async function getMetrics(req, res) {
 
 async function getActiveJobs(req, res) {
   try {
+    const status = (req.query.status || 'ACTIVE').toUpperCase();
+
+    // Draft jobs may not have a line assigned yet (e.g. an ERP work order
+    // whose production_line didn't match an existing line) — any manager
+    // needs to be able to see and claim those, not just line owners.
+    const where =
+      status === 'DRAFT'
+        ? { status: 'DRAFT', OR: [{ line: { managerId: req.user.id } }, { lineId: null }] }
+        : { status, line: { managerId: req.user.id } };
+
     const jobs = await prisma.job.findMany({
-      where: {
-        status: 'ACTIVE',
-        line: { managerId: req.user.id },
-      },
+      where,
       include: {
         stages: {
           orderBy: { stageOrder: 'asc' },
@@ -60,6 +67,10 @@ async function getActiveJobs(req, res) {
       jobId: job.jobId,
       name: job.name,
       productName: job.productName,
+      status: job.status,
+      source: job.source,
+      batchNumber: job.batchNumber,
+      lineId: job.lineId,
       stages: job.stages.map((stage) => ({
         id: stage.id,
         stageOrder: stage.stageOrder,
@@ -73,7 +84,7 @@ async function getActiveJobs(req, res) {
 
     return res.status(200).json({ jobs: shaped });
   } catch (error) {
-    return res.status(500).json({ message: 'Failed to load active jobs', error: error.message });
+    return res.status(500).json({ message: 'Failed to load jobs', error: error.message });
   }
 }
 
@@ -138,7 +149,7 @@ async function getOperators(req, res) {
   try {
     const operators = await prisma.user.findMany({
       where: { role: 'OPERATOR', isActive: true },
-      select: { id: true, name: true, identifier: true, phone: true },
+      select: { id: true, name: true, identifier: true, phone: true, skills: true },
       orderBy: { name: 'asc' },
     });
     res.json(operators);

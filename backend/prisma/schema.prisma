@@ -129,26 +129,33 @@ model BlueprintFaultCategory {
 }
 
 model Job {
-  id               String          @id @default(uuid())
-  jobId            String          @unique
-  name             String
-  productName      String?
-  targetQuantity   Int             @default(0)
-  unit             String          @default("Units")
-  status           JobStatus       @default(DRAFT)
-  notes            String?
-  targetDate       DateTime?
-  scheduledStartAt DateTime?
-  scheduledEndAt   DateTime?
-  startedAt        DateTime?
-  completedAt      DateTime?
-  createdById      String?
-  lineId           String?
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
-  faults           FaultLog[]
-  stages           JobStage[]
-  line             ProductionLine? @relation(fields: [lineId], references: [id])
+  id                   String                   @id @default(uuid())
+  jobId                String                   @unique
+  name                 String
+  productName          String?
+  targetQuantity       Int                      @default(0)
+  unit                 String                   @default("Units")
+  status               JobStatus                @default(DRAFT)
+  notes                String?
+  targetDate           DateTime?
+  scheduledStartAt     DateTime?
+  scheduledEndAt       DateTime?
+  startedAt            DateTime?
+  completedAt          DateTime?
+  createdById          String?
+  lineId               String?
+  source               JobSource                @default(MANUAL)
+  externalWorkOrderId  String?                  @unique
+  batchNumber          String?
+  actualProducedQty    Int?
+  actualScrapQty       Int?
+  createdAt            DateTime                 @default(now())
+  updatedAt            DateTime                 @updatedAt
+  faults               FaultLog[]
+  stages               JobStage[]
+  line                 ProductionLine?          @relation(fields: [lineId], references: [id])
+  materialRequirements JobMaterialRequirement[]
+  downtimeLogs         JobDowntimeLog[]
 
   @@map("jobs")
 }
@@ -159,6 +166,8 @@ model JobStage {
   blueprintId              String?
   stageOrder               Int
   stageName                String
+  instruction              String?
+  requiresQc               Boolean          @default(false)
   estimatedDurationMinutes Int              @default(0)
   stationTag               String?
   status                   StageStatus      @default(PENDING)
@@ -177,6 +186,33 @@ model JobStage {
 
   @@unique([jobId, stageOrder])
   @@map("job_stages")
+}
+
+model JobMaterialRequirement {
+  id            String   @id @default(uuid())
+  jobId         String
+  name          String
+  qtyPerUnit    Float
+  unit          String
+  totalRequired Float
+  wastagePct    Float?
+  sortOrder     Int      @default(0)
+  createdAt     DateTime @default(now())
+  job           Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@map("job_material_requirements")
+}
+
+model JobDowntimeLog {
+  id        String    @id @default(uuid())
+  jobId     String
+  startedAt DateTime
+  endedAt   DateTime?
+  reason    String
+  createdAt DateTime  @default(now())
+  job       Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@map("job_downtime_logs")
 }
 
 model ProcessSession {
@@ -231,6 +267,7 @@ enum Role {
   EXECUTIVE
   MANAGER
   OPERATOR
+  ERP
 }
 
 enum JobStatus {
@@ -239,6 +276,11 @@ enum JobStatus {
   PAUSED
   COMPLETED
   CANCELLED
+}
+
+enum JobSource {
+  MANUAL
+  ERP
 }
 
 enum StageStatus {
