@@ -1,7 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { LoginPage } from './consoles/auth/LoginPage';
 import { ProtectedRoute } from './shared/components/ProtectedRoute';
-import { ComingSoon } from './shared/components/ComingSoon';
 import { MinimalConsoleShell } from './shared/components/MinimalConsoleShell';
 import { ExecutiveShell } from './consoles/executive/ExecutiveShell';
 import { ManagerShell } from './consoles/manager/managerShell';
@@ -12,6 +11,7 @@ import { EnterpriseOverview } from './consoles/executive/pages/EnterpriseOvervie
 import { ManagerAccounts } from './consoles/executive/pages/ManagerAccounts';
 import { ProductionLines } from './consoles/executive/pages/ProductionLines';
 import { ActiveJobs } from './consoles/executive/pages/ActiveJobs';
+import { HistoricalAnalytics } from './consoles/executive/pages/HistoricalAnalytics';
 import { OperatorRoster } from './consoles/manager/pages/OperatorRoster';
 import { FaultRecords } from './consoles/manager/pages/FaultRecords';
 
@@ -26,7 +26,7 @@ function App() {
           <Route path="managers" element={<ManagerAccounts />} />
           <Route path="lines" element={<ProductionLines />} />
           <Route path="jobs" element={<ActiveJobs />} />
-          <Route path="analytics" element={<ComingSoon title="Historical Analytics" />} />
+          <Route path="analytics" element={<HistoricalAnalytics />} />
         </Route>
       </Route>
 

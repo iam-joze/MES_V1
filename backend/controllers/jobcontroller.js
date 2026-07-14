@@ -205,4 +205,79 @@ async function updateJob(req, res) {
   }
 }
 
-module.exports = { createJob, getJob, updateJob };
+async function logDowntime(req, res) {
+  const { id } = req.params;
+  const { reason, startedAt, endedAt } = req.body;
+
+  if (!reason || !startedAt) {
+    return res.status(400).json({ message: 'reason and startedAt are required' });
+  }
+
+  try {
+    const job = await prisma.job.findUnique({
+      where: { id },
+      include: { line: { select: { managerId: true } } },
+    });
+
+    if (!job || !(await canManagerAccessJob(job, req.user.id))) {
+      return res.status(404).json({ message: 'Job not found' });
+    }
+
+    const entry = await prisma.jobDowntimeLog.create({
+      data: {
+        jobId: id,
+        reason,
+        startedAt: new Date(startedAt),
+        endedAt: endedAt ? new Date(endedAt) : null,
+      },
+    });
+
+    return res.status(201).json(entry);
+  } catch (error) {
+    return res.status(500).json({ message: 'Failed to log downtime', error: error.message });
+  }
+}
+
+async function logScrap(req, res) {
+  const { id } = req.params;
+  const { stageId, quantity, unit, wasteType, notes } = req.body;
+
+  if (!quantity || !unit || !wasteType) {
+    return res.status(400).json({ message: 'quantity, unit, and wasteType are required' });
+  }
+
+  try {
+    const job = await prisma.job.findUnique({
+      where: { id },
+      include: { line: { select: { managerId: true } } },
+    });
+
+    if (!job || !(await canManagerAccessJob(job, req.user.id))) {
+      return res.status(404).json({ message: 'Job not found' });
+    }
+
+    if (stageId) {
+      const stage = await prisma.jobStage.findFirst({ where: { id: stageId, jobId: id } });
+      if (!stage) {
+        return res.status(400).json({ message: 'stageId does not belong to this job' });
+      }
+    }
+
+    const entry = await prisma.scrapLog.create({
+      data: {
+        jobId: id,
+        stageId: stageId || null,
+        quantity: Number(quantity),
+        unit,
+        wasteType,
+        notes: notes || null,
+      },
+    });
+
+    return res.status(201).json(entry);
+  } catch (error) {
+    return res.status(500).json({ message: 'Failed to log scrap', error: error.message });
+  }
+}
+
+module.exports = { createJob, getJob, updateJob, logDowntime, logScrap };

@@ -156,6 +156,7 @@ model Job {
   line                 ProductionLine?          @relation(fields: [lineId], references: [id])
   materialRequirements JobMaterialRequirement[]
   downtimeLogs         JobDowntimeLog[]
+  scrapLogs            ScrapLog[]
 
   @@map("jobs")
 }
@@ -183,9 +184,25 @@ model JobStage {
   job                      Job              @relation(fields: [jobId], references: [id], onDelete: Cascade)
   operator                 User?            @relation("StageOperator", fields: [operatorId], references: [id])
   sessions                 ProcessSession[]
+  scrapLogs                ScrapLog[]
 
   @@unique([jobId, stageOrder])
   @@map("job_stages")
+}
+
+model ScrapLog {
+  id        String    @id @default(uuid())
+  jobId     String
+  stageId   String?
+  quantity  Float
+  unit      String
+  wasteType String
+  notes     String?
+  loggedAt  DateTime  @default(now())
+  job       Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  stage     JobStage? @relation(fields: [stageId], references: [id])
+
+  @@map("scrap_logs")
 }
 
 model JobMaterialRequirement {
