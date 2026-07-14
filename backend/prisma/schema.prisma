@@ -52,6 +52,7 @@ model Blueprint {
   name                      String
   description               String?
   category                  String
+  skillCategory             String?
   stationTag                String?
   estimatedDurationMinutes  Int                      @default(0)
   isArchived                Boolean                  @default(false)
