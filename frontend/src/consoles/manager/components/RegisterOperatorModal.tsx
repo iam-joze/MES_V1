@@ -1,11 +1,6 @@
 import { useState } from 'react';
 import { X, Phone, KeyRound, Shield, UserCheck, AlertTriangle, Loader2 } from 'lucide-react';
-
-const AVAILABLE_SKILLS = [
-  'Pasteurization', 'Blender Ops', 'Filling', 'Capping', 'Labeling',
-  'Packaging', 'QC Certified', 'Washing', 'Pulping', 'Mixing',
-  'Maintenance', 'Lab Testing', 'All Stations', 'Sorting',
-];
+import { useBlueprintSkills } from '../../../shared/lib/useBlueprintSkills';
 
 interface RegisterOperatorModalProps {
   onClose: () => void;
@@ -21,6 +16,7 @@ export function RegisterOperatorModal({ onClose, onRegistered, onSubmit }: Regis
   const [skills, setSkills] = useState<string[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const availableSkills = useBlueprintSkills();
 
   const toggleSkill = (skill: string) =>
     setSkills((prev) => (prev.includes(skill) ? prev.filter((s) => s !== skill) : [...prev, skill]));
@@ -128,8 +124,11 @@ export function RegisterOperatorModal({ onClose, onRegistered, onSubmit }: Regis
             <label className="block text-sm font-medium text-slate-700 mb-2">
               <Shield size={14} className="inline mr-1" />Skill Certifications
             </label>
+            {availableSkills.length === 0 ? (
+              <p className="text-xs text-slate-400 italic">No blueprints available yet — create one in the Blueprint Library first.</p>
+            ) : (
             <div className="flex flex-wrap gap-1.5">
-              {AVAILABLE_SKILLS.map((skill) => (
+              {availableSkills.map((skill) => (
                 <button
                   key={skill}
                   type="button"
@@ -142,6 +141,7 @@ export function RegisterOperatorModal({ onClose, onRegistered, onSubmit }: Regis
                 </button>
               ))}
             </div>
+            )}
           </div>
         </div>
 
