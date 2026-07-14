@@ -8,5 +8,7 @@ router.use(authenticateToken, requireRole('MANAGER'));
 router.post('/', jobController.createJob);
 router.get('/:id', jobController.getJob);
 router.put('/:id', jobController.updateJob);
+router.post('/:id/downtime', jobController.logDowntime);
+router.post('/:id/scrap', jobController.logScrap);
 
 module.exports = router;
