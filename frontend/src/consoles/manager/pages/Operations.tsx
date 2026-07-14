@@ -9,6 +9,8 @@ import {
   Layers,
   CheckCircle2,
   Clock,
+  FileEdit,
+  ArrowRight,
 } from 'lucide-react';
 import { api } from '../../../shared/lib/api';
 
@@ -44,6 +46,17 @@ interface ActiveJob {
   jobId: string;
   name: string;
   productName: string | null;
+  stages: JobStage[];
+}
+
+interface DraftJob {
+  id: string;
+  jobId: string;
+  name: string;
+  productName: string | null;
+  source: 'MANUAL' | 'ERP';
+  batchNumber: string | null;
+  lineId: string | null;
   stages: JobStage[];
 }
 
@@ -108,6 +121,7 @@ export function Operations() {
   const [lines, setLines] = useState<AssignedLine[] | null>(null);
   const [metrics, setMetrics] = useState<MetricsData | null>(null);
   const [jobs, setJobs] = useState<ActiveJob[] | null>(null);
+  const [draftJobs, setDraftJobs] = useState<DraftJob[] | null>(null);
   const [alerts, setAlerts] = useState<Alert[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dismissingId, setDismissingId] = useState<string | null>(null);
@@ -119,13 +133,15 @@ export function Operations() {
       api.get<{ lines: AssignedLine[] }>('/manager/lines'),
       api.get<MetricsData>('/manager/metrics'),
       api.get<{ jobs: ActiveJob[] }>('/manager/jobs'),
+      api.get<{ jobs: DraftJob[] }>('/manager/jobs?status=DRAFT'),
       api.get<{ alerts: Alert[] }>('/manager/alerts'),
     ])
-      .then(([linesRes, metricsRes, jobsRes, alertsRes]) => {
+      .then(([linesRes, metricsRes, jobsRes, draftJobsRes, alertsRes]) => {
         if (cancelled) return;
         setLines(linesRes.data.lines);
         setMetrics(metricsRes.data);
         setJobs(jobsRes.data.jobs);
+        setDraftJobs(draftJobsRes.data.jobs);
         setAlerts(alertsRes.data.alerts);
       })
       .catch((err) => {
@@ -159,7 +175,7 @@ export function Operations() {
     );
   }
 
-  if (!lines || !metrics || !jobs || !alerts) {
+  if (!lines || !metrics || !jobs || !draftJobs || !alerts) {
     return (
       <div className="flex items-center justify-center py-24 text-slate-400">
         <Loader2 size={28} className="animate-spin" strokeWidth={2.5} />
@@ -309,6 +325,52 @@ export function Operations() {
             </div>
           )}
         </div>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-slate-200/50 shadow-card p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <FileEdit size={20} className="text-navy-600" strokeWidth={2.5} />
+            <h3 className="font-bold text-slate-900">Draft Jobs</h3>
+          </div>
+          <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">
+            {draftJobs.length} draft{draftJobs.length === 1 ? '' : 's'}
+          </span>
+        </div>
+
+        {draftJobs.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-10 text-center">
+            <FileEdit size={36} className="text-slate-300 mb-3" strokeWidth={2} />
+            <p className="text-sm font-semibold text-slate-700">No Draft Jobs</p>
+            <p className="text-xs text-slate-500 mt-1">Jobs saved as drafts, or received from the ERP, appear here to finish building.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {draftJobs.map((job) => (
+              <div key={job.id} className="p-4 rounded-xl border border-slate-200 bg-slate-50">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="font-mono text-xs text-slate-500">{job.jobId}</span>
+                  {job.source === 'ERP' && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-info-100 text-info-700">ERP</span>
+                  )}
+                </div>
+                <p className="text-sm font-semibold text-slate-900 truncate">{job.name}</p>
+                {job.batchNumber && <p className="text-xs text-slate-500 mt-0.5">Batch {job.batchNumber}</p>}
+                <p className="text-xs text-slate-400 mt-1">{job.stages.length} stage{job.stages.length === 1 ? '' : 's'} built</p>
+                {!job.lineId && (
+                  <p className="text-xs text-warning-600 mt-1 font-medium">No production line assigned yet</p>
+                )}
+                <button
+                  onClick={() => navigate(`/manager/job-builder?jobId=${job.id}`)}
+                  className="mt-3 w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-navy-900 hover:bg-navy-800 text-white text-sm font-semibold transition-all active:scale-[0.98]"
+                >
+                  Continue in Job Builder
+                  <ArrowRight size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
