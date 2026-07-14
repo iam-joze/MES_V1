@@ -12,9 +12,9 @@ import {
   AlertOctagon,
   User,
   ChevronDown,
-  X,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { EmergencyStopOverlay } from './components/EmergencyStopOverlay';
 
 const navItems = [
   { to: '/manager', label: 'Operations', icon: <LayoutDashboard size={20} strokeWidth={2.5} />, end: true },
@@ -27,7 +27,8 @@ const navItems = [
 export function ManagerShell() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const [emergencyNotice, setEmergencyNotice] = useState(false);
+  const [showStopOverlay, setShowStopOverlay] = useState(false);
+  const [stopConfirmation, setStopConfirmation] = useState<string | null>(null);
 
   const handleSignOut = () => {
     logout();
@@ -92,7 +93,7 @@ export function ManagerShell() {
 
           <div className="flex items-center gap-3 flex-shrink-0">
             <button
-              onClick={() => setEmergencyNotice(true)}
+              onClick={() => setShowStopOverlay(true)}
               className="flex items-center gap-2 px-4 py-2 bg-danger-600 hover:bg-danger-700 text-white font-semibold rounded-lg shadow-sm hover:shadow-md transition-all border-2 border-danger-700"
             >
               <AlertOctagon size={18} />
@@ -117,11 +118,11 @@ export function ManagerShell() {
           </div>
         </header>
 
-        {emergencyNotice && (
-          <div className="flex items-center justify-between gap-3 px-6 py-2.5 bg-warning-50 border-b border-warning-200 text-warning-800 text-sm flex-shrink-0">
-            <span>Emergency Stop isn't wired up yet — this is a placeholder control.</span>
-            <button onClick={() => setEmergencyNotice(false)} className="text-warning-600 hover:text-warning-800">
-              <X size={16} />
+        {stopConfirmation && (
+          <div className="flex items-center justify-between gap-3 px-6 py-2.5 bg-danger-50 border-b border-danger-200 text-danger-800 text-sm flex-shrink-0">
+            <span>{stopConfirmation}</span>
+            <button onClick={() => setStopConfirmation(null)} className="text-danger-600 hover:text-danger-800">
+              Dismiss
             </button>
           </div>
         )}
@@ -130,6 +131,20 @@ export function ManagerShell() {
           <Outlet />
         </main>
       </div>
+
+      {showStopOverlay && (
+        <EmergencyStopOverlay
+          onClose={() => setShowStopOverlay(false)}
+          onStopped={(count) => {
+            setShowStopOverlay(false);
+            setStopConfirmation(
+              count === 0
+                ? 'No active jobs were running — nothing to stop.'
+                : `Emergency stop triggered — ${count} job${count === 1 ? '' : 's'} paused.`
+            );
+          }}
+        />
+      )}
     </div>
   );
 }
