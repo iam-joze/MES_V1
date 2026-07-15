@@ -1,7 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { LoginPage } from './consoles/auth/LoginPage';
 import { ProtectedRoute } from './shared/components/ProtectedRoute';
-import { MinimalConsoleShell } from './shared/components/MinimalConsoleShell';
 import { ExecutiveShell } from './consoles/executive/ExecutiveShell';
 import { ManagerShell } from './consoles/manager/managerShell';
 import { Operations } from './consoles/manager/pages/Operations';
@@ -14,6 +13,8 @@ import { ActiveJobs } from './consoles/executive/pages/ActiveJobs';
 import { HistoricalAnalytics } from './consoles/executive/pages/HistoricalAnalytics';
 import { OperatorRoster } from './consoles/manager/pages/OperatorRoster';
 import { FaultRecords } from './consoles/manager/pages/FaultRecords';
+import { OperatorHome } from './consoles/operator/pages/OperatorHome';
+import { OperatorRuntime } from './consoles/operator/pages/OperatorRuntime';
 
 function App() {
   return (
@@ -41,7 +42,8 @@ function App() {
       </Route>
 
       <Route element={<ProtectedRoute role="OPERATOR" />}>
-        <Route path="/operator" element={<MinimalConsoleShell consoleName="Operator Console" />} />
+        <Route path="/operator" element={<OperatorHome />} />
+        <Route path="/operator/stage/:stageId" element={<OperatorRuntime />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/login" replace />} />
