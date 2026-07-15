@@ -123,7 +123,7 @@ async function getAnalytics(req, res) {
     endDateInclusive.setHours(23, 59, 59, 999);
     const dateRange = { gte: startDate, lte: endDateInclusive };
 
-    const [jobs, faults, downtimeLogs, scrapLogs, stagesForActivity] = await Promise.all([
+    const [jobs, faults, downtimeLogs, scrapLogs, batchEntries, stagesForActivity] = await Promise.all([
       prisma.job.findMany({
         where: { createdAt: dateRange },
         include: {
@@ -153,6 +153,22 @@ async function getAnalytics(req, res) {
         include: {
           job: { select: { jobId: true, name: true, productName: true, line: { select: { name: true } } } },
           stage: { select: { stageName: true } },
+        },
+        orderBy: { loggedAt: 'desc' },
+      }),
+      prisma.batchEntry.findMany({
+        where: { loggedAt: dateRange },
+        include: {
+          session: {
+            include: {
+              operator: { select: { name: true } },
+              stage: {
+                include: {
+                  job: { select: { jobId: true, name: true, productName: true, line: { select: { name: true } } } },
+                },
+              },
+            },
+          },
         },
         orderBy: { loggedAt: 'desc' },
       }),
@@ -237,6 +253,20 @@ async function getAnalytics(req, res) {
       processName: s.stage?.stageName ?? null,
     }));
 
+    const batchLogs = batchEntries.map((b) => ({
+      id: b.id,
+      batchNumber: b.batchNumber,
+      loggedAt: b.loggedAt,
+      quantityData: b.quantityData,
+      notes: b.notes,
+      jobId: b.session?.stage?.job?.jobId ?? null,
+      jobName: b.session?.stage?.job?.name ?? null,
+      productName: b.session?.stage?.job?.productName ?? null,
+      lineName: b.session?.stage?.job?.line?.name ?? null,
+      stageName: b.session?.stage?.stageName ?? null,
+      operatorName: b.session?.operator?.name ?? null,
+    }));
+
     // Operator activity is intentionally descriptive only — no scores, ranks,
     // or leaderboards, matching the SRS's explicit prohibition on evaluative
     // fields for this view.
@@ -284,6 +314,7 @@ async function getAnalytics(req, res) {
       faultRecords,
       downtimeRecords,
       scrapRecords,
+      batchLogs,
       operatorActivity,
     });
   } catch (error) {

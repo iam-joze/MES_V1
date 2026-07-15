@@ -77,6 +77,20 @@ interface ScrapRecord {
   processName: string | null;
 }
 
+interface BatchLogRow {
+  id: string;
+  batchNumber: number;
+  loggedAt: string;
+  quantityData: Record<string, number>;
+  notes: string | null;
+  jobId: string | null;
+  jobName: string | null;
+  productName: string | null;
+  lineName: string | null;
+  stageName: string | null;
+  operatorName: string | null;
+}
+
 interface OperatorActivityRow {
   operatorName: string;
   tasksAssigned: number;
@@ -91,6 +105,7 @@ interface AnalyticsData {
   faultRecords: FaultRecord[];
   downtimeRecords: DowntimeRecord[];
   scrapRecords: ScrapRecord[];
+  batchLogs: BatchLogRow[];
   operatorActivity: OperatorActivityRow[];
 }
 
@@ -321,33 +336,33 @@ function DowntimeFaultsTab({ downtime, faults }: { downtime: DowntimeRecord[]; f
   );
 }
 
-function ScrapTrackingTab({ data }: { data: ScrapRecord[] }) {
+function ScrapTrackingTab({ scrapData, batchData }: { scrapData: ScrapRecord[]; batchData: BatchLogRow[] }) {
   const byWasteType = useMemo(() => {
     const agg: Record<string, number> = {};
-    data.forEach((s) => {
+    scrapData.forEach((s) => {
       agg[s.wasteType] = (agg[s.wasteType] || 0) + s.quantity;
     });
     return Object.entries(agg)
       .map(([wasteType, quantity]) => ({ wasteType, quantity }))
       .sort((a, b) => b.quantity - a.quantity);
-  }, [data]);
+  }, [scrapData]);
 
   const byLine = useMemo(() => {
     const agg: Record<string, number> = {};
-    data.forEach((s) => {
+    scrapData.forEach((s) => {
       const key = s.lineName || 'Unassigned';
       agg[key] = (agg[key] || 0) + s.quantity;
     });
     return Object.entries(agg)
       .map(([lineName, total]) => ({ lineName, total }))
       .sort((a, b) => b.total - a.total);
-  }, [data]);
+  }, [scrapData]);
 
   const maxQuantity = Math.max(...byWasteType.map((d) => d.quantity), 1);
 
-  if (data.length === 0) {
+  if (scrapData.length === 0 && batchData.length === 0) {
     return (
-      <EmptyState message="No scrap or waste has been logged in this date range. Managers can log scrap against a job stage from the floor." />
+      <EmptyState message="No scrap or batch quantities have been logged in this date range. Managers can log scrap manually, and operators log batch quantities from the floor console." />
     );
   }
 
@@ -361,7 +376,7 @@ function ScrapTrackingTab({ data }: { data: ScrapRecord[] }) {
             </div>
             <span className="text-sm text-slate-600">Total Scrap Logged</span>
           </div>
-          <p className="text-2xl font-bold text-slate-900">{data.length} entr{data.length === 1 ? 'y' : 'ies'}</p>
+          <p className="text-2xl font-bold text-slate-900">{scrapData.length} entr{scrapData.length === 1 ? 'y' : 'ies'}</p>
         </div>
         <div className="bg-white rounded-xl border border-slate-200 p-5">
           <div className="flex items-center gap-3 mb-2">
@@ -383,59 +398,115 @@ function ScrapTrackingTab({ data }: { data: ScrapRecord[] }) {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 p-6">
-        <h3 className="text-base font-bold text-slate-900 mb-4">Scrap by Waste Type</h3>
-        <div className="space-y-3">
-          {byWasteType.map((item) => (
-            <div key={item.wasteType} className="flex items-center gap-4">
-              <div className="w-40 text-sm text-slate-700 truncate">{item.wasteType}</div>
-              <div className="flex-1 h-6 bg-slate-100 rounded-lg overflow-hidden">
-                <div className="h-full bg-danger-500 rounded-lg" style={{ width: `${(item.quantity / maxQuantity) * 100}%` }} />
+      {byWasteType.length > 0 && (
+        <div className="bg-white rounded-xl border border-slate-200 p-6">
+          <h3 className="text-base font-bold text-slate-900 mb-4">Scrap by Waste Type</h3>
+          <div className="space-y-3">
+            {byWasteType.map((item) => (
+              <div key={item.wasteType} className="flex items-center gap-4">
+                <div className="w-40 text-sm text-slate-700 truncate">{item.wasteType}</div>
+                <div className="flex-1 h-6 bg-slate-100 rounded-lg overflow-hidden">
+                  <div className="h-full bg-danger-500 rounded-lg" style={{ width: `${(item.quantity / maxQuantity) * 100}%` }} />
+                </div>
+                <div className="w-24 text-right text-sm font-semibold text-slate-700">{item.quantity.toLocaleString()}</div>
               </div>
-              <div className="w-24 text-right text-sm font-semibold text-slate-700">{item.quantity.toLocaleString()}</div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
+      )}
+
+      {scrapData.length > 0 && (
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-200">
+            <div className="flex items-center gap-2">
+              <Trash2 size={20} className="text-navy-600" strokeWidth={2.5} />
+              <h3 className="text-base font-bold text-slate-900">Scrap & Waste Log</h3>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-50">
+                  <th className="text-left px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Production Line</th>
+                  <th className="text-left px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Process</th>
+                  <th className="text-center px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Quantity Wasted</th>
+                  <th className="text-left px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Waste Type</th>
+                </tr>
+              </thead>
+              <tbody>
+                {scrapData.map((row) => (
+                  <tr key={row.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/50 transition-colors">
+                    <td className="px-6 py-5">
+                      <span className="text-base font-bold text-slate-900">{row.lineName || 'Unassigned'}</span>
+                    </td>
+                    <td className="px-6 py-5 text-base text-slate-700">{row.processName || row.jobName || '—'}</td>
+                    <td className="px-6 py-5 text-center">
+                      <span className="text-base font-semibold text-slate-900">{row.quantity.toLocaleString()}</span>
+                      <span className="text-base text-slate-500 ml-1">{row.unit}</span>
+                    </td>
+                    <td className="px-6 py-5">
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+                        {row.wasteType}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-200">
           <div className="flex items-center gap-2">
-            <Trash2 size={20} className="text-navy-600" strokeWidth={2.5} />
-            <h3 className="text-base font-bold text-slate-900">Scrap & Waste Log</h3>
+            <Package size={20} className="text-navy-600" strokeWidth={2.5} />
+            <h3 className="text-base font-bold text-slate-900">Logged Batch Data</h3>
           </div>
+          <p className="text-sm text-slate-500 mt-0.5">Every quantity batch operators have recorded from the floor console, including production and waste metrics.</p>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-slate-200 bg-slate-50">
-                <th className="text-left px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Production Line</th>
-                <th className="text-left px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Process</th>
-                <th className="text-center px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Quantity Wasted</th>
-                <th className="text-left px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Waste Type</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.map((row) => (
-                <tr key={row.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/50 transition-colors">
-                  <td className="px-6 py-5">
-                    <span className="text-base font-bold text-slate-900">{row.lineName || 'Unassigned'}</span>
-                  </td>
-                  <td className="px-6 py-5 text-base text-slate-700">{row.processName || row.jobName || '—'}</td>
-                  <td className="px-6 py-5 text-center">
-                    <span className="text-base font-semibold text-slate-900">{row.quantity.toLocaleString()}</span>
-                    <span className="text-base text-slate-500 ml-1">{row.unit}</span>
-                  </td>
-                  <td className="px-6 py-5">
-                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">
-                      {row.wasteType}
-                    </span>
-                  </td>
+        {batchData.length === 0 ? (
+          <p className="text-sm text-slate-400 text-center py-8">No batch quantities logged in this range.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-50">
+                  <th className="text-left px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Job / Line</th>
+                  <th className="text-left px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Stage</th>
+                  <th className="text-left px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Operator</th>
+                  <th className="text-center px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Batch #</th>
+                  <th className="text-left px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Quantities Logged</th>
+                  <th className="text-right px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Logged At</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {batchData.map((row) => (
+                  <tr key={row.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/50 transition-colors align-top">
+                    <td className="px-6 py-4">
+                      <p className="text-sm font-semibold text-slate-900">{row.jobName || '—'}</p>
+                      <p className="text-xs text-slate-500">{row.jobId} {row.lineName ? `· ${row.lineName}` : ''}</p>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-slate-700">{row.stageName || '—'}</td>
+                    <td className="px-6 py-4 text-sm text-slate-700">{row.operatorName || '—'}</td>
+                    <td className="px-6 py-4 text-center text-sm font-semibold text-slate-800">#{row.batchNumber}</td>
+                    <td className="px-6 py-4">
+                      <div className="flex flex-wrap gap-1.5">
+                        {Object.entries(row.quantityData).map(([metric, value]) => (
+                          <span key={metric} className="px-2 py-0.5 bg-slate-100 rounded text-xs text-slate-600">
+                            {metric}: <span className="font-semibold text-slate-800">{value}</span>
+                          </span>
+                        ))}
+                      </div>
+                      {row.notes && <p className="text-xs text-slate-500 italic mt-1.5">"{row.notes}"</p>}
+                    </td>
+                    <td className="px-6 py-4 text-right text-sm text-slate-500">{new Date(row.loggedAt).toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -543,6 +614,10 @@ export function HistoricalAnalytics() {
       ...data.scrapRecords.map(
         (s) => `Scrap,${s.jobId || ''},${s.lineName || ''},${s.loggedAt},${s.quantity} ${s.unit},"${s.wasteType}"`
       ),
+      ...data.batchLogs.map((b) => {
+        const metrics = Object.entries(b.quantityData).map(([k, v]) => `${k}: ${v}`).join('; ');
+        return `Batch,${b.jobId || ''},${b.lineName || ''},${b.loggedAt},Batch #${b.batchNumber},"${b.stageName || ''} — ${metrics}"`;
+      }),
     ].join('\n');
 
     const blob = new Blob([lines], { type: 'text/csv' });
@@ -619,7 +694,7 @@ export function HistoricalAnalytics() {
           <Fragment>
             {activeTab === 'timelines' && <JobTimelinesTab data={data.jobHistory} />}
             {activeTab === 'downtime' && <DowntimeFaultsTab downtime={data.downtimeRecords} faults={data.faultRecords} />}
-            {activeTab === 'scrap' && <ScrapTrackingTab data={data.scrapRecords} />}
+            {activeTab === 'scrap' && <ScrapTrackingTab scrapData={data.scrapRecords} batchData={data.batchLogs} />}
             {activeTab === 'operators' && <OperatorActivityTab data={data.operatorActivity} />}
           </Fragment>
         ) : null}
