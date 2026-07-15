@@ -1,5 +1,5 @@
 {
-  // ts configs
+  // ts configurations
   "files": [],
   "references": [
     { "path": "./tsconfig.app.json" },
