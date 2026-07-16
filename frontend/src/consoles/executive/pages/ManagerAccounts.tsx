@@ -3,6 +3,8 @@ import { UserPlus, Mail, Calendar, Loader2, AlertTriangle } from 'lucide-react';
 import { api } from '../../../shared/lib/api';
 import { formatDate, formatRelativeTime, initials } from '../../../shared/lib/formatters';
 import { AddManagerModal, type ManagerAccount, type LineOption } from '../components/AddManagerModal';
+import { ManagerActionsMenu } from '../components/ManagerActionsMenu';
+import { RemoveManagerModal } from '../components/RemoveManagerModal';
 
 export function ManagerAccounts() {
   const [managers, setManagers] = useState<ManagerAccount[] | null>(null);
@@ -10,6 +12,7 @@ export function ManagerAccounts() {
   const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const [removeTarget, setRemoveTarget] = useState<ManagerAccount | null>(null);
 
   const loadManagers = () => {
     api
@@ -26,16 +29,25 @@ export function ManagerAccounts() {
       .catch(() => {});
   }, []);
 
-  const handleDeactivate = async (id: string) => {
-    setPendingId(id);
+  const handleToggleStatus = async (manager: ManagerAccount) => {
+    setPendingId(manager.id);
+    setError(null);
     try {
-      await api.patch(`/executive/managers/${id}/deactivate`);
-      setManagers((prev) => prev?.map((m) => (m.id === id ? { ...m, isActive: false } : m)) ?? null);
+      const action = manager.isActive ? 'deactivate' : 'activate';
+      await api.patch(`/executive/managers/${manager.id}/${action}`);
+      setManagers((prev) => prev?.map((m) => (m.id === manager.id ? { ...m, isActive: !manager.isActive } : m)) ?? null);
     } catch (err: any) {
-      setError(err?.response?.data?.message || 'Failed to deactivate account.');
+      setError(err?.response?.data?.message || 'Failed to update account status.');
     } finally {
       setPendingId(null);
     }
+  };
+
+  const handleRemove = async () => {
+    if (!removeTarget) return;
+    await api.delete(`/executive/managers/${removeTarget.id}`);
+    setManagers((prev) => prev?.filter((m) => m.id !== removeTarget.id) ?? null);
+    setRemoveTarget(null);
   };
 
   const handleCreated = (manager: ManagerAccount) => {
@@ -118,14 +130,16 @@ export function ManagerAccounts() {
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right">
-                    {manager.isActive && (
-                      <button
-                        onClick={() => handleDeactivate(manager.id)}
-                        disabled={pendingId === manager.id}
-                        className="text-danger-600 hover:text-danger-700 font-semibold text-sm disabled:opacity-50"
-                      >
-                        {pendingId === manager.id ? 'Deactivating…' : 'Deactivate Account'}
-                      </button>
+                    {pendingId === manager.id ? (
+                      <Loader2 size={16} className="animate-spin text-slate-400 inline-block" strokeWidth={2.5} />
+                    ) : (
+                      <div className="flex justify-end">
+                        <ManagerActionsMenu
+                          manager={manager}
+                          onToggleStatus={() => handleToggleStatus(manager)}
+                          onRemove={() => setRemoveTarget(manager)}
+                        />
+                      </div>
                     )}
                   </td>
                 </tr>
@@ -136,6 +150,9 @@ export function ManagerAccounts() {
       </div>
 
       {isModalOpen && <AddManagerModal lines={lines} onClose={() => setIsModalOpen(false)} onCreated={handleCreated} />}
+      {removeTarget && (
+        <RemoveManagerModal manager={removeTarget} onConfirm={handleRemove} onCancel={() => setRemoveTarget(null)} />
+      )}
     </div>
   );
 }

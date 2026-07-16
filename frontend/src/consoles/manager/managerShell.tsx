@@ -1,6 +1,6 @@
+import { useState } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import {
-  Factory,
   LayoutDashboard,
   FileText,
   Wrench,
@@ -8,8 +8,13 @@ import {
   AlertTriangle,
   Bell,
   LogOut,
+  Search,
+  AlertOctagon,
+  User,
+  ChevronDown,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { EmergencyStopOverlay } from './components/EmergencyStopOverlay';
 
 const navItems = [
   { to: '/manager', label: 'Operations', icon: <LayoutDashboard size={20} strokeWidth={2.5} />, end: true },
@@ -22,6 +27,8 @@ const navItems = [
 export function ManagerShell() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [showStopOverlay, setShowStopOverlay] = useState(false);
+  const [stopConfirmation, setStopConfirmation] = useState<string | null>(null);
 
   const handleSignOut = () => {
     logout();
@@ -33,8 +40,8 @@ export function ManagerShell() {
       <aside className="w-64 bg-navy-950 flex flex-col flex-shrink-0">
         <div className="px-5 py-5 border-b border-navy-800">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center border border-white/20">
-              <Factory size={22} className="text-white" strokeWidth={2.5} />
+            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center overflow-hidden border border-white/20">
+              <img src="/dojohub_icon.png" alt="Dojo Hub Uganda logo" className="w-full h-full object-contain" />
             </div>
             <div>
               <h1 className="text-sm font-bold text-white leading-tight">Dojo Hub Uganda</h1>
@@ -73,31 +80,71 @@ export function ManagerShell() {
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between flex-shrink-0">
-          <div>
-            <h2 className="text-lg font-bold text-slate-900">Welcome back, {user?.name?.split(' ')[0] || 'Manager'}</h2>
-            <p className="text-sm text-slate-500 mt-0.5">
-              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
-              <span className="text-slate-300 mx-2">·</span>
-              {new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-            </p>
+        <header className="bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between gap-4 flex-shrink-0">
+          <div className="relative flex-1 max-w-xl">
+            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              disabled
+              placeholder="Search jobs, operators, or faults... (coming soon)"
+              className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-500 placeholder-slate-400 cursor-not-allowed"
+            />
           </div>
-          <div className="flex items-center gap-4">
+
+          <div className="flex items-center gap-3 flex-shrink-0">
+            <button
+              onClick={() => setShowStopOverlay(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-danger-600 hover:bg-danger-700 text-white font-semibold rounded-lg shadow-sm hover:shadow-md transition-all border-2 border-danger-700"
+            >
+              <AlertOctagon size={18} />
+              <span className="text-sm tracking-wide">EMERGENCY STOP</span>
+            </button>
+
             <button className="relative p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
               <Bell size={20} strokeWidth={2.5} />
               <span className="absolute top-1 right-1 w-2 h-2 bg-danger-500 rounded-full" />
             </button>
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-success-100 border border-success-200">
-              <span className="w-2 h-2 rounded-full bg-success-500 animate-pulse" />
-              <span className="text-sm font-semibold text-success-700">System Online</span>
-            </div>
+
+            <button className="flex items-center gap-2 p-1.5 hover:bg-slate-100 rounded-lg transition-colors">
+              <div className="w-8 h-8 rounded-full bg-navy-600 flex items-center justify-center flex-shrink-0">
+                <User size={16} className="text-white" />
+              </div>
+              <div className="hidden sm:block text-left">
+                <p className="text-sm font-medium text-slate-900 leading-tight">{user?.name}</p>
+                <p className="text-xs text-slate-500 leading-tight">Manager</p>
+              </div>
+              <ChevronDown size={16} className="text-slate-400" />
+            </button>
           </div>
         </header>
+
+        {stopConfirmation && (
+          <div className="flex items-center justify-between gap-3 px-6 py-2.5 bg-danger-50 border-b border-danger-200 text-danger-800 text-sm flex-shrink-0">
+            <span>{stopConfirmation}</span>
+            <button onClick={() => setStopConfirmation(null)} className="text-danger-600 hover:text-danger-800">
+              Dismiss
+            </button>
+          </div>
+        )}
 
         <main className="flex-1 overflow-y-auto p-6">
           <Outlet />
         </main>
       </div>
+
+      {showStopOverlay && (
+        <EmergencyStopOverlay
+          onClose={() => setShowStopOverlay(false)}
+          onStopped={(count) => {
+            setShowStopOverlay(false);
+            setStopConfirmation(
+              count === 0
+                ? 'No active jobs were running — nothing to stop.'
+                : `Emergency stop triggered — ${count} job${count === 1 ? '' : 's'} paused.`
+            );
+          }}
+        />
+      )}
     </div>
   );
 }

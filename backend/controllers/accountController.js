@@ -78,13 +78,59 @@ async function createManager(req, res) {
 
 async function deactivateManager(req, res) {
   try {
-    const manager = await prisma.user.update({
-      where: { id: req.params.id },
-      data: { isActive: false },
+    const manager = await prisma.$transaction(async (tx) => {
+      const updated = await tx.user.update({
+        where: { id: req.params.id },
+        data: { isActive: false },
+      });
+      await tx.productionLine.updateMany({
+        where: { managerId: req.params.id },
+        data: { managerId: null },
+      });
+      return updated;
     });
     return res.status(200).json({ id: manager.id, isActive: manager.isActive });
   } catch (error) {
+    if (error.code === 'P2025') {
+      return res.status(404).json({ message: 'Manager account not found' });
+    }
     return res.status(500).json({ message: 'Failed to deactivate manager account', error: error.message });
+  }
+}
+
+async function activateManager(req, res) {
+  try {
+    const manager = await prisma.user.update({
+      where: { id: req.params.id },
+      data: { isActive: true },
+    });
+    return res.status(200).json({ id: manager.id, isActive: manager.isActive });
+  } catch (error) {
+    if (error.code === 'P2025') {
+      return res.status(404).json({ message: 'Manager account not found' });
+    }
+    return res.status(500).json({ message: 'Failed to activate manager account', error: error.message });
+  }
+}
+
+async function removeManager(req, res) {
+  try {
+    const manager = await prisma.user.findUnique({ where: { id: req.params.id } });
+    if (!manager || manager.role !== 'MANAGER') {
+      return res.status(404).json({ message: 'Manager account not found' });
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.productionLine.updateMany({
+        where: { managerId: req.params.id },
+        data: { managerId: null },
+      });
+      await tx.user.delete({ where: { id: req.params.id } });
+    });
+
+    return res.status(200).json({ id: req.params.id, deleted: true });
+  } catch (error) {
+    return res.status(500).json({ message: 'Failed to remove manager account', error: error.message });
   }
 }
 
@@ -92,4 +138,6 @@ module.exports = {
   listManagers,
   createManager,
   deactivateManager,
+  activateManager,
+  removeManager,
 };

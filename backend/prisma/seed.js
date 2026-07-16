@@ -37,6 +37,14 @@ async function main() {
     role: 'EXECUTIVE',
   });
 
+  // ── ERP SYSTEM (service account — authenticates like any other API client) ──
+  await upsertUser({
+    name: 'ERP Integration',
+    identifier: 'erp-integration@dojohubug.com',
+    password: 'erp-service-2024',
+    role: 'ERP',
+  });
+
   // ── MANAGERS (identifier = corporate email, shared demo password) ──
   const managerA = await upsertUser({
     name: 'Muto John',

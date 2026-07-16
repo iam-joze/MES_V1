@@ -1,6 +1,5 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import {
-  Factory,
   LayoutDashboard,
   Users,
   Layers,
@@ -33,8 +32,8 @@ export function ExecutiveShell() {
       <aside className="w-64 bg-navy-950 flex flex-col flex-shrink-0">
         <div className="px-5 py-5 border-b border-navy-800">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center border border-white/20">
-              <Factory size={22} className="text-white" strokeWidth={2.5} />
+            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center overflow-hidden border border-white/20">
+              <img src="/dojohub_icon.png" alt="Dojo Hub Uganda logo" className="w-full h-full object-contain" />
             </div>
             <div>
               <h1 className="text-sm font-bold text-white leading-tight">Dojo Hub Uganda</h1>

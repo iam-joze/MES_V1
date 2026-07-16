@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Factory,
   Briefcase,
   Settings,
   Wrench,
@@ -139,8 +138,8 @@ function ShowcasePanel() {
 
       <div className="relative z-10 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 bg-white/10 backdrop-blur-sm rounded-xl flex items-center justify-center border border-white/20">
-            <Factory size={26} className="text-white" strokeWidth={2.5} />
+          <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center overflow-hidden border border-white/20">
+            <img src="/dojohub_icon.png" alt="Dojo Hub Uganda logo" className="w-full h-full object-contain" />
           </div>
           <div>
             <h2 className="text-lg font-bold text-white leading-tight">Dojo Hub Uganda</h2>
@@ -274,8 +273,8 @@ export function LoginPage() {
       <div className="flex-1 flex items-center justify-center p-6 sm:p-8 lg:w-1/2">
         <div className="w-full max-w-md">
           <div className="lg:hidden flex items-center gap-3 mb-8">
-            <div className="w-12 h-12 bg-navy-900 rounded-xl flex items-center justify-center">
-              <Factory size={26} className="text-white" strokeWidth={2.5} />
+            <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center overflow-hidden border border-slate-200">
+              <img src="/dojohub_icon.png" alt="Dojo Hub Uganda logo" className="w-full h-full object-contain" />
             </div>
             <div>
               <h2 className="text-lg font-bold text-navy-900 leading-tight">Dojo Hub Uganda</h2>

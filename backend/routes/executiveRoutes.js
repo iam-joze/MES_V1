@@ -6,5 +6,7 @@ const { authenticateToken, requireRole } = require('../middleware/authMiddleware
 const router = express.Router();
 
 router.get('/overview', authenticateToken, requireRole('EXECUTIVE'), executiveController.getOverview);
+router.get('/jobs', authenticateToken, requireRole('EXECUTIVE'), executiveController.getJobs);
+router.get('/analytics', authenticateToken, requireRole('EXECUTIVE'), executiveController.getAnalytics);
 
 module.exports = router;

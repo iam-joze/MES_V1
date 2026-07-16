@@ -1,14 +1,20 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { LoginPage } from './consoles/auth/LoginPage';
 import { ProtectedRoute } from './shared/components/ProtectedRoute';
-import { ComingSoon } from './shared/components/ComingSoon';
-import { MinimalConsoleShell } from './shared/components/MinimalConsoleShell';
 import { ExecutiveShell } from './consoles/executive/ExecutiveShell';
 import { ManagerShell } from './consoles/manager/managerShell';
 import { Operations } from './consoles/manager/pages/Operations';
+import { BlueprintLibrary } from './consoles/manager/pages/BlueprintLibrary';
+import JobBuilder from './consoles/manager/pages/JobBuilder';
 import { EnterpriseOverview } from './consoles/executive/pages/EnterpriseOverview';
 import { ManagerAccounts } from './consoles/executive/pages/ManagerAccounts';
 import { ProductionLines } from './consoles/executive/pages/ProductionLines';
+import { ActiveJobs } from './consoles/executive/pages/ActiveJobs';
+import { HistoricalAnalytics } from './consoles/executive/pages/HistoricalAnalytics';
+import { OperatorRoster } from './consoles/manager/pages/OperatorRoster';
+import { FaultRecords } from './consoles/manager/pages/FaultRecords';
+import { OperatorHome } from './consoles/operator/pages/OperatorHome';
+import { OperatorRuntime } from './consoles/operator/pages/OperatorRuntime';
 
 function App() {
   return (
@@ -20,8 +26,8 @@ function App() {
           <Route index element={<EnterpriseOverview />} />
           <Route path="managers" element={<ManagerAccounts />} />
           <Route path="lines" element={<ProductionLines />} />
-          <Route path="jobs" element={<ComingSoon title="Active Jobs" />} />
-          <Route path="analytics" element={<ComingSoon title="Historical Analytics" />} />
+          <Route path="jobs" element={<ActiveJobs />} />
+          <Route path="analytics" element={<HistoricalAnalytics />} />
         </Route>
       </Route>
 
@@ -29,14 +35,15 @@ function App() {
         <Route path="/manager" element={<ManagerShell />}>
           <Route index element={<Operations />} />
           <Route path="blueprints" element={<BlueprintLibrary />} />
-          <Route path="job-builder" element={<ComingSoon title="Job Builder" />} />
-          <Route path="operator-roster" element={<ComingSoon title="Operator Roster" />} />
-          <Route path="faults" element={<ComingSoon title="Fault Records" />} />
+          <Route path="job-builder" element={<JobBuilder />} />
+          <Route path="operator-roster" element={<OperatorRoster />} />
+          <Route path="faults" element={<FaultRecords />} />
         </Route>
       </Route>
 
       <Route element={<ProtectedRoute role="OPERATOR" />}>
-        <Route path="/operator" element={<MinimalConsoleShell consoleName="Operator Console" />} />
+        <Route path="/operator" element={<OperatorHome />} />
+        <Route path="/operator/stage/:stageId" element={<OperatorRuntime />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/login" replace />} />
