@@ -145,6 +145,69 @@ async function resolveFault(req, res) {
   }
 }
 
+async function search(req, res) {
+  const q = (req.query.q || '').trim();
+  if (q.length < 2) {
+    return res.status(200).json({ jobs: [], operators: [], faults: [] });
+  }
+
+  try {
+    const [jobs, operators, faults] = await Promise.all([
+      prisma.job.findMany({
+        where: {
+          AND: [
+            { OR: [{ line: { managerId: req.user.id } }, { lineId: null }] },
+            {
+              OR: [
+                { jobId: { contains: q, mode: 'insensitive' } },
+                { name: { contains: q, mode: 'insensitive' } },
+                { productName: { contains: q, mode: 'insensitive' } },
+              ],
+            },
+          ],
+        },
+        select: { id: true, jobId: true, name: true, productName: true, status: true },
+        orderBy: { createdAt: 'desc' },
+        take: 6,
+      }),
+      prisma.user.findMany({
+        where: {
+          role: 'OPERATOR',
+          isActive: true,
+          OR: [{ name: { contains: q, mode: 'insensitive' } }, { identifier: { contains: q, mode: 'insensitive' } }],
+        },
+        select: { id: true, name: true, identifier: true, skills: true },
+        orderBy: { name: 'asc' },
+        take: 6,
+      }),
+      prisma.faultLog.findMany({
+        where: {
+          job: { line: { managerId: req.user.id } },
+          OR: [{ title: { contains: q, mode: 'insensitive' } }, { category: { contains: q, mode: 'insensitive' } }],
+        },
+        include: { job: { select: { jobId: true, name: true } } },
+        orderBy: { loggedAt: 'desc' },
+        take: 6,
+      }),
+    ]);
+
+    return res.status(200).json({
+      jobs: jobs.map((j) => ({ id: j.id, jobId: j.jobId, name: j.name, productName: j.productName, status: j.status })),
+      operators: operators.map((o) => ({ id: o.id, name: o.name, phone: o.identifier, skills: o.skills })),
+      faults: faults.map((f) => ({
+        id: f.id,
+        title: f.title,
+        severity: f.severity,
+        resolvedAt: f.resolvedAt,
+        jobId: f.job?.jobId ?? null,
+        jobName: f.job?.name ?? null,
+      })),
+    });
+  } catch (error) {
+    return res.status(500).json({ message: 'Search failed', error: error.message });
+  }
+}
+
 async function getOperators(req, res) {
   try {
     const operators = await prisma.user.findMany({
@@ -166,4 +229,5 @@ module.exports = {
   getAlerts,
   resolveFault,
   getOperators,
+  search,
 };
