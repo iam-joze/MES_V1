@@ -1,5 +1,6 @@
-import { createContext, useContext, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { api } from '../shared/lib/api';
+import { connectSocket, disconnectSocket } from '../shared/lib/socket';
 
 export type Role = 'EXECUTIVE' | 'MANAGER' | 'OPERATOR';
 
@@ -34,11 +35,19 @@ function loadStoredUser(): AuthUser | null {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(loadStoredUser);
 
+  useEffect(() => {
+    if (user) connectSocket();
+    return () => {
+      if (!user) disconnectSocket();
+    };
+  }, [user]);
+
   const login = async (identifier: string, credential: string): Promise<AuthUser> => {
     const { data } = await api.post('/auth/login', { identifier, credential });
     localStorage.setItem(TOKEN_KEY, data.token);
     localStorage.setItem(USER_KEY, JSON.stringify(data.user));
     setUser(data.user);
+    connectSocket();
     return data.user as AuthUser;
   };
 
@@ -46,6 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
     setUser(null);
+    disconnectSocket();
   };
 
   return (

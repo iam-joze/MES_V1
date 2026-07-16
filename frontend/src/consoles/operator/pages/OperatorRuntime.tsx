@@ -21,6 +21,7 @@ import {
   ShieldAlert,
 } from 'lucide-react';
 import { api } from '../../../shared/lib/api';
+import { connectSocket } from '../../../shared/lib/socket';
 import { IssueLogger } from '../components/IssueLogger';
 import { InterruptionIntercept } from '../components/InterruptionIntercept';
 import type { StageDetail, ChecklistItem, QcQuestion, QuantityMetric, BatchEntry } from '../types';
@@ -458,6 +459,38 @@ export function OperatorRuntime() {
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [detail?.actualStartedAt, detail?.status]);
+
+  useEffect(() => {
+    const socket = connectSocket();
+
+    const handleTriggered = (payload: { jobIds: string[] }) => {
+      setDetail((prev) => {
+        if (!prev || !payload.jobIds.includes(prev.jobId)) return prev;
+        return { ...prev, status: 'PAUSED', jobStatus: 'PAUSED' };
+      });
+    };
+
+    const handleResumed = (payload: { jobIds: string[]; stages?: { stageId: string; status: StageDetail['status'] }[] }) => {
+      let needsRefetch = false;
+      setDetail((prev) => {
+        if (!prev || !payload.jobIds.includes(prev.jobId)) return prev;
+        const match = payload.stages?.find((s) => s.stageId === prev.id);
+        if (!match) {
+          needsRefetch = true;
+          return prev;
+        }
+        return { ...prev, status: match.status, jobStatus: 'ACTIVE' };
+      });
+      if (needsRefetch) loadDetail();
+    };
+
+    socket.on('emergency:triggered', handleTriggered);
+    socket.on('emergency:resumed', handleResumed);
+    return () => {
+      socket.off('emergency:triggered', handleTriggered);
+      socket.off('emergency:resumed', handleResumed);
+    };
+  }, [loadDetail]);
 
   const isRunning = detail?.status === 'RUNNING';
   const isPaused = detail?.status === 'PAUSED';
