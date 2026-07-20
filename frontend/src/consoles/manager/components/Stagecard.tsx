@@ -65,28 +65,33 @@ export function StageCard({ stage, index, allStages, isLast, operators, onAssign
           invalid ? 'ring-2 ring-red-500' : showSkillWarning ? 'ring-2 ring-warning-400' : 'border-slate-200'
         }`}
       >
-        <div
+        <button
+          type="button"
           {...attributes}
           {...listeners}
-          className="absolute left-1 top-1/2 -translate-y-1/2 cursor-grab text-slate-400 hover:text-slate-600"
+          aria-label={`Drag ${stage.stageName} to reorder`}
+          title="Drag to reorder"
+          className="absolute left-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 active:cursor-grabbing cursor-grab touch-none"
         >
           <GripVertical size={16} />
-        </div>
+        </button>
 
         <button
+          type="button"
           onClick={() => onRemove(stage.tempId)}
           className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600"
         >
           <X size={12} />
         </button>
 
-        <div className="pl-6">
+        <div className="pl-8">
           <div className="flex items-center justify-between gap-2">
             <h4 className="font-semibold text-slate-900">{stage.stageName}</h4>
             <span className="text-[10px] font-semibold px-1.5 py-0.5 bg-navy-100 text-navy-700 rounded flex-shrink-0">
               #{index + 1}
             </span>
           </div>
+          <p className="mt-1 text-[11px] uppercase tracking-wide text-slate-400">Drag to reorder</p>
           {stage.instruction && <p className="text-xs text-slate-500 mt-1 line-clamp-2">{stage.instruction}</p>}
           <div className="flex items-center gap-2 mt-1.5 text-xs text-slate-500 flex-wrap">
             <Clock size={12} />
