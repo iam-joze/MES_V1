@@ -1,4 +1,5 @@
 const prisma = require('../prismaClient');
+const { emitToOperator } = require('../socket');
 
 const LINE_SCOPE = (managerId) => ({
   job: { line: { managerId } },
@@ -53,6 +54,14 @@ async function resolve(req, res) {
         resolutionNotes: resolutionNotes || null,
       },
     });
+
+    if (fault.operatorId) {
+      emitToOperator(fault.operatorId, 'fault:resolved', {
+        faultId: fault.id,
+        title: fault.title,
+        resolutionNotes: fault.resolutionNotes,
+      });
+    }
 
     return res.status(200).json({ fault });
   } catch (error) {

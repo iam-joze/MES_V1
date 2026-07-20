@@ -1,9 +1,11 @@
 require('dotenv').config();
 
+const http = require('http');
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const { initSocket } = require('./socket');
 
 const authRoutes = require('./routes/authRoutes');
 const executiveRoutes = require('./routes/executiveRoutes');
@@ -47,6 +49,9 @@ app.use((req, res) => {
     res.status(404).json({ message: 'Route not found' });
 });
 
-app.listen(port, () => {
+const httpServer = http.createServer(app);
+initSocket(httpServer);
+
+httpServer.listen(port, () => {
     console.log(`Server started on port ${port}`);
 });

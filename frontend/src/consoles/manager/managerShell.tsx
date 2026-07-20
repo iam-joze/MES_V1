@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -8,13 +8,16 @@ import {
   AlertTriangle,
   Bell,
   LogOut,
-  Search,
   AlertOctagon,
   User,
   ChevronDown,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { api } from '../../shared/lib/api';
+import { connectSocket } from '../../shared/lib/socket';
 import { EmergencyStopOverlay } from './components/EmergencyStopOverlay';
+import { EmergencyStatusBanner, type PausedJob } from './components/EmergencyStatusBanner';
+import { GlobalSearch } from './components/GlobalSearch';
 
 const navItems = [
   { to: '/manager', label: 'Operations', icon: <LayoutDashboard size={20} strokeWidth={2.5} />, end: true },
@@ -29,6 +32,27 @@ export function ManagerShell() {
   const navigate = useNavigate();
   const [showStopOverlay, setShowStopOverlay] = useState(false);
   const [stopConfirmation, setStopConfirmation] = useState<string | null>(null);
+  const [pausedJobs, setPausedJobs] = useState<PausedJob[]>([]);
+
+  const loadPausedJobs = useCallback(() => {
+    api
+      .get<{ jobs: PausedJob[] }>('/emergency-stop/paused-jobs')
+      .then((res) => setPausedJobs(res.data.jobs))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    loadPausedJobs();
+    const socket = connectSocket();
+    const handleTriggered = () => loadPausedJobs();
+    const handleResumed = () => loadPausedJobs();
+    socket.on('emergency:triggered', handleTriggered);
+    socket.on('emergency:resumed', handleResumed);
+    return () => {
+      socket.off('emergency:triggered', handleTriggered);
+      socket.off('emergency:resumed', handleResumed);
+    };
+  }, [loadPausedJobs]);
 
   const handleSignOut = () => {
     logout();
@@ -81,15 +105,7 @@ export function ManagerShell() {
 
       <div className="flex-1 flex flex-col min-w-0">
         <header className="bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between gap-4 flex-shrink-0">
-          <div className="relative flex-1 max-w-xl">
-            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              disabled
-              placeholder="Search jobs, operators, or faults... (coming soon)"
-              className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-500 placeholder-slate-400 cursor-not-allowed"
-            />
-          </div>
+          <GlobalSearch />
 
           <div className="flex items-center gap-3 flex-shrink-0">
             <button
@@ -127,6 +143,8 @@ export function ManagerShell() {
           </div>
         )}
 
+        <EmergencyStatusBanner pausedJobs={pausedJobs} onResumed={loadPausedJobs} />
+
         <main className="flex-1 overflow-y-auto p-6">
           <Outlet />
         </main>
@@ -142,6 +160,7 @@ export function ManagerShell() {
                 ? 'No active jobs were running — nothing to stop.'
                 : `Emergency stop triggered — ${count} job${count === 1 ? '' : 's'} paused.`
             );
+            loadPausedJobs();
           }}
         />
       )}

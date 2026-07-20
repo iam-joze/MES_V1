@@ -16,6 +16,7 @@ import {
   MessageSquare,
 } from 'lucide-react';
 import { api } from '../../../shared/lib/api';
+import { connectSocket } from '../../../shared/lib/socket';
 import { useAuth } from '../../../contexts/AuthContext';
 import type { AssignmentStage, ResolvedFeedback, StageStatus } from '../types';
 
@@ -177,8 +178,23 @@ export function OperatorHome() {
 
   useEffect(() => {
     loadAssignments();
-    const interval = setInterval(loadAssignments, 15000);
-    return () => clearInterval(interval);
+    const socket = connectSocket();
+    const refresh = () => loadAssignments();
+    socket.on('emergency:triggered', refresh);
+    socket.on('emergency:resumed', refresh);
+    socket.on('fault:resolved', refresh);
+
+    // Safety net only — the socket is the primary channel. Keeps the
+    // console working if the connection drops (per the "failure isolation"
+    // principle: REST still works even when the socket doesn't).
+    const interval = setInterval(loadAssignments, 60000);
+
+    return () => {
+      socket.off('emergency:triggered', refresh);
+      socket.off('emergency:resumed', refresh);
+      socket.off('fault:resolved', refresh);
+      clearInterval(interval);
+    };
   }, [loadAssignments]);
 
   const handleSignOut = () => {
