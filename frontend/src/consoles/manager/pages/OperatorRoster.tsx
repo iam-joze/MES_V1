@@ -55,9 +55,6 @@ function OperatorTableRow({ operator, onToggleStatus, onEditSkills, onResetPin, 
         </div>
       </td>
       <td className="px-6 py-4">
-        <span className="font-mono text-slate-400 tracking-widest">••••</span>
-      </td>
-      <td className="px-6 py-4">
         <div className="flex flex-wrap gap-1 max-w-[220px]">
           {operator.skills.length === 0 ? (
             <span className="text-xs text-slate-400 italic">No certifications</span>
@@ -239,7 +236,6 @@ export function OperatorRoster() {
               <tr className="border-b border-slate-100 text-left text-xs font-bold text-slate-500 uppercase tracking-wide">
                 <th className="px-6 py-3">Operator</th>
                 <th className="px-6 py-3">Phone / Login</th>
-                <th className="px-6 py-3">PIN</th>
                 <th className="px-6 py-3">Skills</th>
                 <th className="px-6 py-3">Status</th>
                 <th className="px-6 py-3 text-right">Actions</th>
