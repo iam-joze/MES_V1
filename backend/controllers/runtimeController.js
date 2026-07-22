@@ -1,4 +1,10 @@
 const prisma = require('../prismaClient');
+const { emitToManager, emitToExecutives } = require('../socket');
+
+async function getJobManagerId(jobId) {
+  const job = await prisma.job.findUnique({ where: { id: jobId }, select: { line: { select: { managerId: true } } } });
+  return job?.line?.managerId ?? null;
+}
 
 function shapeStageForList(stage) {
   return {
@@ -138,6 +144,9 @@ async function startStage(req, res) {
       });
     });
 
+    const managerId = await getJobManagerId(stage.jobId);
+    emitToManager(managerId, 'stage:updated', { stageId: stage.id, jobId: stage.jobId, status: 'RUNNING' });
+
     return res.status(200).json({ status: 'RUNNING' });
   } catch (error) {
     return res.status(500).json({ message: 'Failed to start stage', error: error.message });
@@ -166,6 +175,9 @@ async function pauseStage(req, res) {
         data: { jobId: stage.jobId, stageId: stage.id, reason, startedAt: now },
       });
     });
+
+    const managerId = await getJobManagerId(stage.jobId);
+    emitToManager(managerId, 'stage:updated', { stageId: stage.id, jobId: stage.jobId, status: 'PAUSED', reason });
 
     return res.status(200).json({ status: 'PAUSED' });
   } catch (error) {
@@ -202,6 +214,9 @@ async function resumeStage(req, res) {
         await tx.jobDowntimeLog.update({ where: { id: openDowntime.id }, data: { endedAt: now } });
       }
     });
+
+    const managerId = await getJobManagerId(stage.jobId);
+    emitToManager(managerId, 'stage:updated', { stageId: stage.id, jobId: stage.jobId, status: 'RUNNING' });
 
     return res.status(200).json({ status: 'RUNNING' });
   } catch (error) {
@@ -241,6 +256,9 @@ async function completeStage(req, res) {
         jobCompleted = true;
       }
     });
+
+    const managerId = await getJobManagerId(stage.jobId);
+    emitToManager(managerId, 'stage:updated', { stageId: stage.id, jobId: stage.jobId, status: 'COMPLETED', jobCompleted });
 
     return res.status(200).json({ status: 'COMPLETED', jobCompleted });
   } catch (error) {
@@ -305,6 +323,9 @@ async function logQuantity(req, res) {
       },
     });
 
+    const managerId = await getJobManagerId(stage.jobId);
+    emitToManager(managerId, 'batch:logged', { stageId: stage.id, jobId: stage.jobId, batchNumber: nextBatchNumber, quantityData });
+
     return res.status(201).json(batch);
   } catch (error) {
     return res.status(500).json({ message: 'Failed to log quantity', error: error.message });
@@ -366,6 +387,11 @@ async function reportFault(req, res) {
         severity,
       },
     });
+
+    const managerId = await getJobManagerId(stage.jobId);
+    const payload = { faultId: fault.id, stageId: stage.id, jobId: stage.jobId, title: faultName, severity };
+    emitToManager(managerId, 'fault:reported', payload);
+    if (severity === 'CRITICAL') emitToExecutives('fault:reported', payload);
 
     return res.status(201).json(fault);
   } catch (error) {

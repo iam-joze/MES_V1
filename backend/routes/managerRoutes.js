@@ -137,6 +137,7 @@ router.patch('/faults/:id/resolve', authenticateToken, requireRole('MANAGER'), m
  *       403: { $ref: '#/components/responses/ForbiddenError' }
  */
 router.get('/operators', authenticateToken, requireRole('MANAGER'), managerController.getOperators);
+router.get('/search', authenticateToken, requireRole('MANAGER'), managerController.search);
 
 /**
  * @swagger

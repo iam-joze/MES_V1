@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { AlertOctagon, X, Factory, Target, ChevronDown, Loader2 } from 'lucide-react';
+import { AlertOctagon, X, Factory, Target, ChevronDown, HandMetal, Loader2 } from 'lucide-react';
 import { api } from '../../../shared/lib/api';
 
 type StopScope = 'facility_wide' | 'specific_job';
@@ -40,22 +40,26 @@ export function EmergencyStopOverlay({ onClose, onStopped }: EmergencyStopOverla
   const [error, setError] = useState<string | null>(null);
   const progressRef = useRef<number | null>(null);
 
-  // Only fetch the list of stoppable jobs once the manager actually picks
-  // "specific job" — no point loading it up front for the facility-wide path.
   useEffect(() => {
     if (scope === 'specific_job' && activeJobs === null) {
-      api.get<{ jobs: ActiveJob[] }>('/emergency-stop/active-jobs')
+      api
+        .get<{ jobs: ActiveJob[] }>('/emergency-stop/active-jobs')
         .then((res) => setActiveJobs(res.data.jobs))
         .catch(() => setActiveJobs([]));
     }
   }, [scope, activeJobs]);
 
-  useEffect(() => () => { if (progressRef.current) clearInterval(progressRef.current); }, []);
+  useEffect(
+    () => () => {
+      if (progressRef.current) clearInterval(progressRef.current);
+    },
+    []
+  );
 
-  const canSubmit = reason && (scope === 'facility_wide' || selectedJobId);
+  const canSubmit = !!reason && (scope === 'facility_wide' || !!selectedJobId);
 
   const startHold = () => {
-    if (!canSubmit) return;
+    if (!canSubmit || submitting) return;
     setIsHolding(true);
     setHoldProgress(0);
     progressRef.current = window.setInterval(() => {
@@ -98,120 +102,172 @@ export function EmergencyStopOverlay({ onClose, onStopped }: EmergencyStopOverla
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-danger-950/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-card-elevated overflow-hidden">
-        <div className="px-6 py-4 bg-danger-600 flex items-center justify-between">
-          <div className="flex items-center gap-3 text-white">
-            <AlertOctagon size={24} />
-            <h2 className="font-bold">Emergency Stop</h2>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-danger-900/80 backdrop-blur-sm animate-pulse" />
+      <div className="absolute inset-4 border-4 border-danger-500 rounded-xl shadow-[0_0_60px_rgba(239,68,68,0.5)] pointer-events-none" />
+
+      <div className="relative w-full max-w-lg bg-danger-950 rounded-card shadow-2xl overflow-hidden border-2 border-danger-600 max-h-[92vh] flex flex-col">
+        <div className="px-6 py-5 bg-danger-900 border-b border-danger-700 flex-shrink-0">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <AlertOctagon size={32} className="text-danger-400 animate-pulse" />
+              <div>
+                <h2 className="text-xl font-bold text-white uppercase tracking-wide">Emergency Stop Activation</h2>
+                <p className="text-danger-300 text-sm mt-0.5">Confirm production halt parameters</p>
+              </div>
+            </div>
+            <button onClick={onClose} className="p-2 text-danger-400 hover:text-white hover:bg-danger-800 rounded-lg transition-colors">
+              <X size={24} />
+            </button>
           </div>
-          <button onClick={onClose} className="p-1.5 text-white/80 hover:text-white hover:bg-white/10 rounded-lg">
-            <X size={20} />
-          </button>
         </div>
 
-        <div className="p-6 space-y-4 max-h-[65vh] overflow-y-auto">
-          {error && <p className="text-sm text-danger-600 bg-danger-50 border border-danger-200 rounded-lg p-3">{error}</p>}
+        <div className="p-6 space-y-6 overflow-y-auto">
+          {error && (
+            <p className="text-sm text-white bg-danger-800 border border-danger-600 rounded-lg p-3">{error}</p>
+          )}
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Stop Scope</label>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => setScope('facility_wide')}
-                className={`flex items-center gap-2 p-3 rounded-lg border-2 text-sm font-medium ${
-                  scope === 'facility_wide' ? 'border-danger-500 bg-danger-50 text-danger-700' : 'border-slate-200 text-slate-600'
+            <label className="block text-sm font-semibold text-danger-200 uppercase tracking-wide mb-3">
+              Stop Scope <span className="text-danger-400">*</span>
+            </label>
+            <div className="space-y-2">
+              <label
+                className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                  scope === 'facility_wide' ? 'border-danger-500 bg-danger-900/50' : 'border-danger-800/50 hover:border-danger-700'
                 }`}
               >
-                <Factory size={16} /> All My Active Jobs
-              </button>
-              <button
-                type="button"
-                onClick={() => setScope('specific_job')}
-                className={`flex items-center gap-2 p-3 rounded-lg border-2 text-sm font-medium ${
-                  scope === 'specific_job' ? 'border-danger-500 bg-danger-50 text-danger-700' : 'border-slate-200 text-slate-600'
+                <input
+                  type="radio"
+                  name="scope"
+                  checked={scope === 'facility_wide'}
+                  onChange={() => setScope('facility_wide')}
+                  className="w-4 h-4 text-danger-600 border-danger-400 focus:ring-danger-500 bg-danger-900"
+                />
+                <Factory size={20} className="text-danger-400" />
+                <div className="flex-1">
+                  <span className="font-semibold text-white">Halt Facility-Wide Production</span>
+                  <p className="text-xs text-danger-400 mt-0.5">All your lines, all active jobs, immediate shutdown</p>
+                </div>
+              </label>
+
+              <label
+                className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                  scope === 'specific_job' ? 'border-warning-500 bg-warning-900/30' : 'border-danger-800/50 hover:border-warning-700'
                 }`}
               >
-                <Target size={16} /> Specific Job
-              </button>
+                <input
+                  type="radio"
+                  name="scope"
+                  checked={scope === 'specific_job'}
+                  onChange={() => setScope('specific_job')}
+                  className="w-4 h-4 text-warning-600 border-warning-400 focus:ring-warning-500 bg-warning-900"
+                />
+                <Target size={20} className="text-warning-400" />
+                <div className="flex-1">
+                  <span className="font-semibold text-white">Halt Specific Active Job Run Only</span>
+                  <p className="text-xs text-warning-400 mt-0.5">Stop designated production job, others continue</p>
+                </div>
+              </label>
             </div>
           </div>
 
           {scope === 'specific_job' && (
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Select Job</label>
+              <label className="block text-sm font-semibold text-danger-200 uppercase tracking-wide mb-2">Select Job</label>
               {activeJobs === null ? (
-                <div className="flex items-center gap-2 text-sm text-slate-400 py-2">
+                <div className="flex items-center gap-2 text-sm text-danger-400 py-2">
                   <Loader2 size={16} className="animate-spin" /> Loading active jobs...
                 </div>
               ) : activeJobs.length === 0 ? (
-                <p className="text-sm text-slate-400">No active jobs on your lines.</p>
+                <p className="text-sm text-danger-400">No active jobs on your lines.</p>
               ) : (
                 <div className="relative">
                   <select
                     value={selectedJobId}
                     onChange={(e) => setSelectedJobId(e.target.value)}
-                    className="w-full appearance-none px-3 py-2.5 pr-9 bg-slate-50 border border-slate-200 rounded-lg text-sm"
+                    className="w-full px-4 py-3 bg-danger-900 border-2 border-danger-700 rounded-lg text-white appearance-none cursor-pointer focus:outline-none focus:border-warning-500 focus:ring-2 focus:ring-warning-500/30"
                   >
-                    <option value="">Choose a job...</option>
+                    <option value="" className="bg-danger-900">
+                      Choose a job...
+                    </option>
                     {activeJobs.map((job) => (
-                      <option key={job.id} value={job.id}>
+                      <option key={job.id} value={job.id} className="bg-danger-900">
                         {job.line.lineCode} — {job.name}
                       </option>
                     ))}
                   </select>
-                  <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <ChevronDown size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-danger-400 pointer-events-none" />
                 </div>
               )}
             </div>
           )}
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Reason</label>
+            <label className="block text-sm font-semibold text-danger-200 uppercase tracking-wide mb-2">
+              Reason for Stop <span className="text-danger-400">*</span>
+            </label>
             <div className="relative">
               <select
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                className="w-full appearance-none px-3 py-2.5 pr-9 bg-slate-50 border border-slate-200 rounded-lg text-sm"
+                className="w-full px-4 py-3 bg-danger-900 border-2 border-danger-700 rounded-lg text-white appearance-none cursor-pointer focus:outline-none focus:border-danger-500 focus:ring-2 focus:ring-danger-500/30"
               >
-                <option value="">Select a reason...</option>
-                {REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
+                <option value="" className="bg-danger-900">
+                  Select reason...
+                </option>
+                {REASONS.map((r) => (
+                  <option key={r} value={r} className="bg-danger-900">
+                    {r}
+                  </option>
+                ))}
               </select>
-              <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              <ChevronDown size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-danger-400 pointer-events-none" />
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Additional Notes (optional)</label>
+            <label className="block text-sm font-semibold text-danger-200 uppercase tracking-wide mb-2">Additional Details</label>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="w-full h-20 px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm resize-none"
+              placeholder="Describe the situation and any immediate actions taken..."
+              className="w-full h-20 px-4 py-3 bg-danger-900 border-2 border-danger-700 rounded-lg text-white placeholder-danger-500 focus:outline-none focus:border-danger-500 focus:ring-2 focus:ring-danger-500/30 resize-none"
             />
           </div>
-        </div>
 
-        <div className="p-6 border-t border-slate-200 bg-slate-50">
-          <button
-            type="button"
-            disabled={!canSubmit || submitting}
-            onMouseDown={startHold}
-            onMouseUp={endHold}
-            onMouseLeave={endHold}
-            onTouchStart={startHold}
-            onTouchEnd={endHold}
-            className="relative w-full py-4 rounded-xl bg-danger-600 text-white font-bold overflow-hidden disabled:opacity-40 select-none"
-          >
-            <div
-              className="absolute inset-0 bg-danger-800 transition-none"
-              style={{ width: `${holdProgress}%` }}
-            />
-            <span className="relative flex items-center justify-center gap-2">
-              {submitting ? <Loader2 size={18} className="animate-spin" /> : <AlertOctagon size={18} />}
-              {submitting ? 'Stopping...' : isHolding ? 'Keep Holding...' : 'Press & Hold to Confirm Stop'}
-            </span>
-          </button>
+          <div className="pt-1">
+            <button
+              type="button"
+              onMouseDown={startHold}
+              onMouseUp={endHold}
+              onMouseLeave={endHold}
+              onTouchStart={startHold}
+              onTouchEnd={endHold}
+              disabled={!canSubmit || submitting}
+              className={`w-full relative overflow-hidden py-4 rounded-lg font-bold text-lg uppercase tracking-wider transition-all select-none ${
+                !canSubmit
+                  ? 'bg-danger-800/50 text-danger-500 cursor-not-allowed'
+                  : isHolding
+                  ? 'bg-danger-600 text-white'
+                  : 'bg-danger-700 hover:bg-danger-600 text-white'
+              }`}
+            >
+              <div className="absolute inset-0 bg-danger-500 transition-all duration-75" style={{ width: `${holdProgress}%` }} />
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+              <div className="relative flex items-center justify-center gap-3">
+                {submitting ? (
+                  <Loader2 size={24} className="animate-spin" />
+                ) : (
+                  <HandMetal size={24} className={isHolding ? 'animate-pulse' : ''} />
+                )}
+                <span>
+                  {submitting ? 'Stopping Production...' : holdProgress >= 100 ? 'Confirmed — Executing...' : isHolding ? 'Continue Holding...' : 'Hold to Confirm Emergency Stop'}
+                </span>
+              </div>
+            </button>
+            <p className="text-center text-danger-400 text-xs mt-2">Hold button for 1.5 seconds to confirm activation</p>
+          </div>
         </div>
       </div>
     </div>

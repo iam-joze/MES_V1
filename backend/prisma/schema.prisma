@@ -229,6 +229,7 @@ model JobDowntimeLog {
   startedAt DateTime
   endedAt   DateTime?
   reason    String
+  category  String?
   createdAt DateTime  @default(now())
   job       Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Factory,
@@ -13,6 +13,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { api } from '../../../shared/lib/api';
+import { connectSocket } from '../../../shared/lib/socket';
 
 interface AssignedLine {
   id: string;
@@ -126,10 +127,8 @@ export function Operations() {
   const [error, setError] = useState<string | null>(null);
   const [dismissingId, setDismissingId] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    Promise.all([
+  const loadAll = useCallback(() => {
+    return Promise.all([
       api.get<{ lines: AssignedLine[] }>('/manager/lines'),
       api.get<MetricsData>('/manager/metrics'),
       api.get<{ jobs: ActiveJob[] }>('/manager/jobs'),
@@ -137,7 +136,6 @@ export function Operations() {
       api.get<{ alerts: Alert[] }>('/manager/alerts'),
     ])
       .then(([linesRes, metricsRes, jobsRes, draftJobsRes, alertsRes]) => {
-        if (cancelled) return;
         setLines(linesRes.data.lines);
         setMetrics(metricsRes.data);
         setJobs(jobsRes.data.jobs);
@@ -145,13 +143,29 @@ export function Operations() {
         setAlerts(alertsRes.data.alerts);
       })
       .catch((err) => {
-        if (!cancelled) setError(err?.response?.data?.message || 'Failed to load your operations data.');
+        setError(err?.response?.data?.message || 'Failed to load your operations data.');
       });
+  }, []);
+
+  useEffect(() => {
+    loadAll();
+
+    const socket = connectSocket();
+    const refresh = () => loadAll();
+    socket.on('stage:updated', refresh);
+    socket.on('batch:logged', refresh);
+    socket.on('fault:reported', refresh);
+    socket.on('emergency:triggered', refresh);
+    socket.on('emergency:resumed', refresh);
 
     return () => {
-      cancelled = true;
+      socket.off('stage:updated', refresh);
+      socket.off('batch:logged', refresh);
+      socket.off('fault:reported', refresh);
+      socket.off('emergency:triggered', refresh);
+      socket.off('emergency:resumed', refresh);
     };
-  }, []);
+  }, [loadAll]);
 
   const handleDismiss = async (id: string) => {
     setDismissingId(id);
