@@ -126,7 +126,13 @@ async function exportProductionData(req, res) {
       include: {
         materialRequirements: true,
         downtimeLogs: true,
-        stages: { include: { faults: true } },
+        scrapLogs: true,
+        stages: {
+          include: {
+            faults: true,
+            qcResponses: { include: { question: true } },
+          },
+        },
       },
     });
 
@@ -137,15 +143,49 @@ async function exportProductionData(req, res) {
       return res.status(409).json({ message: `Job is not yet complete (current status: ${job.status})` });
     }
 
+    // Real scrap total — ScrapLog rows are logged by managers per job/stage.
+    const actualScrap = job.scrapLogs.reduce((sum, s) => sum + s.quantity, 0);
+
+    // Real QC results — every question an operator answered, across every
+    // stage of the job, joined back to its blueprint question text.
+    const qcResults = job.stages.flatMap((stage) =>
+      stage.qcResponses.map((r) => {
+        let passFail = null;
+        if (r.passed !== null && r.passed !== undefined) {
+          passFail = r.passed ? 'pass' : 'fail';
+        } else if (
+          r.question.responseType === 'numeric' &&
+          r.question.numericMinValue != null &&
+          r.question.numericMaxValue != null &&
+          r.responseText
+        ) {
+          const value = Number(r.responseText);
+          passFail = value >= r.question.numericMinValue && value <= r.question.numericMaxValue ? 'pass' : 'fail';
+        }
+        return {
+          step: r.question.questionText,
+          'pass/fail': passFail,
+          notes: r.responseText ?? null,
+        };
+      })
+    );
+
     return res.status(200).json({
       work_order_id: job.externalWorkOrderId,
       job_id: job.jobId,
       batch_number: job.batchNumber,
+      // No process anywhere sets a final "units produced" figure for a job —
+      // operators log quantities against blueprint-defined metrics (their
+      // names vary per blueprint, e.g. "Units Filled" vs "Juice/Pulp Output")
+      // and nothing in the schema flags which one represents finished
+      // output. Reporting 0 here rather than guessing at a metric name.
       actual_produced: job.actualProducedQty ?? 0,
-      actual_scrap: job.actualScrapQty ?? 0,
-      // Real per-lot consumption tracking requires the Operator execution
-      // console (not yet built) — until then this reports the planned
-      // requirement as a placeholder rather than fabricating lot numbers.
+      actual_scrap: actualScrap,
+      // qty_used and lot_number still can't be populated for real: there's
+      // no link from a JobMaterialRequirement row to the quantity metric(s)
+      // an operator actually logs, and Lot/Batch Traceability (raw-material
+      // lot capture) hasn't been built. name/unit are the real planned
+      // requirement; the rest is honestly null rather than estimated.
       materials_consumed: job.materialRequirements.map((m) => ({
         name: m.name,
         qty_used: null,
@@ -157,8 +197,7 @@ async function exportProductionData(req, res) {
         end: d.endedAt,
         reason: d.reason,
       })),
-      // QC capture also depends on the not-yet-built Operator console.
-      qc_results: [],
+      qc_results: qcResults,
     });
   } catch (error) {
     return res.status(500).json({ message: 'Failed to export production data', error: error.message });
