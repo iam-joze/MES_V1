@@ -1,9 +1,10 @@
-import { useEffect, useState, useMemo, Fragment } from 'react';
+import { useCallback, useEffect, useState, useMemo, Fragment } from 'react';
 import {
   Calendar, Download, Clock, AlertTriangle, AlertOctagon, Users, ChevronDown, ChevronRight,
   Loader2, AlertCircle, BarChart3, Filter, Package, Trash2, Activity,
 } from 'lucide-react';
 import { api } from '../../../shared/lib/api';
+import { connectSocket } from '../../../shared/lib/socket';
 
 type Tab = 'timelines' | 'downtime' | 'scrap' | 'operators';
 
@@ -578,15 +579,18 @@ export function HistoricalAnalytics() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const fetchAnalytics = useCallback(async () => {
+    const res = await api.get<AnalyticsData>('/executive/analytics', { params: { startDate, endDate } });
+    setData(res.data);
+    setError(null);
+  }, [startDate, endDate]);
+
+  // Initial load / date-range change — shows the loading spinner, since this
+  // is a deliberate user action.
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    setError(null);
-    api
-      .get<AnalyticsData>('/executive/analytics', { params: { startDate, endDate } })
-      .then((res) => {
-        if (!cancelled) setData(res.data);
-      })
+    fetchAnalytics()
       .catch((err) => {
         if (!cancelled) setError(err?.response?.data?.message || 'Failed to load analytics data.');
       })
@@ -596,7 +600,33 @@ export function HistoricalAnalytics() {
     return () => {
       cancelled = true;
     };
-  }, [startDate, endDate]);
+  }, [fetchAnalytics]);
+
+  // Live updates — refetch silently in the background whenever something
+  // that feeds these views happens on the floor, without flashing the
+  // loading state over data the executive is already looking at.
+  useEffect(() => {
+    const socket = connectSocket();
+    const refresh = () => {
+      fetchAnalytics().catch(() => {});
+    };
+    socket.on('stage:updated', refresh);
+    socket.on('batch:logged', refresh);
+    socket.on('scrap:logged', refresh);
+    socket.on('fault:reported', refresh);
+    socket.on('fault:resolved', refresh);
+    socket.on('emergency:triggered', refresh);
+    socket.on('emergency:resumed', refresh);
+    return () => {
+      socket.off('stage:updated', refresh);
+      socket.off('batch:logged', refresh);
+      socket.off('scrap:logged', refresh);
+      socket.off('fault:reported', refresh);
+      socket.off('fault:resolved', refresh);
+      socket.off('emergency:triggered', refresh);
+      socket.off('emergency:resumed', refresh);
+    };
+  }, [fetchAnalytics]);
 
   const handleExport = () => {
     if (!data) return;
