@@ -1,4 +1,5 @@
 const { PrismaClient } = require('@prisma/client');
+const { emitToExecutives } = require('../socket');
 const prisma = new PrismaClient();
 
 function generateJobDisplayId() {
@@ -273,6 +274,8 @@ async function logScrap(req, res) {
         notes: notes || null,
       },
     });
+
+    emitToExecutives('scrap:logged', { jobId: id, quantity: entry.quantity, unit, wasteType });
 
     return res.status(201).json(entry);
   } catch (error) {
