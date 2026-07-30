@@ -34,7 +34,7 @@ app.get('/', (req, res) => {
     res.json({ message: 'MES Backend is running!' });
 });
 
-app.use('/api-docs', helmet({ contentSecurityPolicy: false }), swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/executive', executiveRoutes);
