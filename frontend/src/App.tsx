@@ -2,7 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import { LoginPage } from './consoles/auth/LoginPage';
 import { ProtectedRoute } from './shared/components/ProtectedRoute';
 import { ExecutiveShell } from './consoles/executive/ExecutiveShell';
-import { ManagerShell } from './consoles/manager/managerShell';
+import { ManagerShell } from './consoles/manager/ManagerShell';
 import { Operations } from './consoles/manager/pages/Operations';
 import { BlueprintLibrary } from './consoles/manager/pages/BlueprintLibrary';
 import JobBuilder from './consoles/manager/pages/JobBuilder';
