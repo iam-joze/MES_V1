@@ -20,57 +20,62 @@ router.use(authenticateToken, requireRole('ERP'));
  *         application/json:
  *           schema:
  *             type: object
- *             required: [externalWorkOrderId, name, targetQuantity, unit]
+ *             required: [work_order_id, batch_number, product, target_quantity, unit, work_instructions]
  *             properties:
- *               externalWorkOrderId: { type: string, description: "ERP's own work order ID, stored for de-duplication" }
- *               name: { type: string }
- *               productName: { type: string }
- *               targetQuantity: { type: integer }
+ *               work_order_id: { type: string, description: "ERP's own work order ID, stored for de-duplication" }
+ *               batch_number: { type: string }
+ *               product: { type: string }
+ *               target_quantity: { type: integer }
  *               unit: { type: string }
- *               lineId: { type: string, format: uuid }
+ *               production_line: { type: string, description: "Matched case-insensitively against ProductionLine.name or ProductionLine.lineCode; if no match, the job is created with no line and is visible to all managers as an unassigned draft" }
+ *               scheduled_date: { type: string, format: date-time }
+ *               due_date: { type: string, format: date-time }
+ *               material_requirements:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     name: { type: string }
+ *                     qty_per_unit: { type: number }
+ *                     unit: { type: string }
+ *                     total_required: { type: number }
+ *                     wastage_pct: { type: number, nullable: true }
+ *               work_instructions:
+ *                 type: array
+ *                 description: Ordered process stages the job will run through in MES
+ *                 items:
+ *                   type: object
+ *                   required: [order, instruction]
+ *                   properties:
+ *                     order: { type: integer }
+ *                     station: { type: string, nullable: true }
+ *                     instruction: { type: string }
+ *                     requires_qc: { type: boolean }
+ *                     expected_duration_min: { type: integer }
  *     responses:
  *       201:
- *         description: Job created from the work order
- *         content:
- *           application/json:
- *             schema: { $ref: '#/components/schemas/Job' }
- *       401: { $ref: '#/components/responses/UnauthorizedError' }
- *       403: { $ref: '#/components/responses/ForbiddenError' }
- */
-router.post('/work-orders', erpController.receiveWorkOrder);
-
-/**
- * @swagger
- * /erp/jobs/{id}/production-data:
- *   get:
- *     summary: Export completed production data for a job back to the ERP system
- *     tags: [ERP Integration]
- *     security: [{ bearerAuth: [] }]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema: { type: string, format: uuid }
- *     responses:
- *       200:
- *         description: Production data for the job (actual quantities, scrap, downtime)
+ *         description: Job created from the work order (status DRAFT)
  *         content:
  *           application/json:
  *             schema:
  *               type: object
  *               properties:
- *                 job: { $ref: '#/components/schemas/Job' }
- *                 scrapLogs:
- *                   type: array
- *                   items: { $ref: '#/components/schemas/ScrapLog' }
- *                 downtimeLogs:
- *                   type: array
- *                   items: { $ref: '#/components/schemas/JobDowntimeLog' }
+ *                 message: { type: string }
+ *                 jobId: { type: string }
+ *                 id: { type: string, format: uuid }
+ *                 status: { type: string }
+ *                 lineMatched: { type: boolean }
+ *                 lineName: { type: string, nullable: true }
+ *                 stageCount: { type: integer }
+ *                 materialCount: { type: integer }
+ *       400:
+ *         description: Missing required fields
  *       401: { $ref: '#/components/responses/UnauthorizedError' }
  *       403: { $ref: '#/components/responses/ForbiddenError' }
- *       404: { $ref: '#/components/responses/NotFoundError' }
+ *       409:
+ *         description: A job for this work_order_id already exists
  */
-router.get('/jobs/:id/production-data', erpController.exportProductionData);
+router.post('/work-orders', erpController.receiveWorkOrder);
 
 module.exports = router;
 /* Erp routes*/

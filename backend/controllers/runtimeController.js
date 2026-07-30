@@ -1,5 +1,6 @@
 const prisma = require('../prismaClient');
 const { emitToManager, emitToExecutives } = require('../socket');
+const erpClient = require('../services/erpClient');
 
 async function getJobManagerId(jobId) {
   const job = await prisma.job.findUnique({ where: { id: jobId }, select: { line: { select: { managerId: true } } } });
@@ -259,6 +260,12 @@ async function completeStage(req, res) {
 
     const managerId = await getJobManagerId(stage.jobId);
     emitToManager(managerId, 'stage:updated', { stageId: stage.id, jobId: stage.jobId, status: 'COMPLETED', jobCompleted });
+
+    if (jobCompleted) {
+      erpClient.pushProductionData(stage.jobId).catch((err) => {
+        console.error('Failed to push production data to ERP', err);
+      });
+    }
 
     return res.status(200).json({ status: 'COMPLETED', jobCompleted });
   } catch (error) {
