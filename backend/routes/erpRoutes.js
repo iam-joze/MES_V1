@@ -73,3 +73,4 @@ router.post('/work-orders', erpController.receiveWorkOrder);
 router.get('/jobs/:id/production-data', erpController.exportProductionData);
 
 module.exports = router;
+/* Erp routes*/
