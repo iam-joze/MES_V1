@@ -4,6 +4,27 @@ const managerController = require('../controllers/managerController');
 const { authenticateToken, requireRole } = require('../middleware/authMiddleware');
 
 const router = express.Router();
+const SEARCH_WINDOW_MS = 60 * 1000;
+const SEARCH_MAX_REQUESTS = 60;
+const searchBuckets = new Map();
+
+function searchRateLimit(req, res, next) {
+  const identifier = req.user?.id || req.user?.userId || req.ip;
+  const now = Date.now();
+  const bucket = searchBuckets.get(identifier);
+
+  if (!bucket || now - bucket.windowStart >= SEARCH_WINDOW_MS) {
+    searchBuckets.set(identifier, { windowStart: now, count: 1 });
+    return next();
+  }
+
+  if (bucket.count >= SEARCH_MAX_REQUESTS) {
+    return res.status(429).json({ message: 'Too many requests. Please retry shortly.' });
+  }
+
+  bucket.count += 1;
+  return next();
+}
 
 /**
  * @swagger
@@ -137,7 +158,6 @@ router.patch('/faults/:id/resolve', authenticateToken, requireRole('MANAGER'), m
  *       403: { $ref: '#/components/responses/ForbiddenError' }
  */
 router.get('/operators', authenticateToken, requireRole('MANAGER'), managerController.getOperators);
-router.get('/search', authenticateToken, requireRole('MANAGER'), managerController.search);
 
 /**
  * @swagger
@@ -157,6 +177,6 @@ router.get('/search', authenticateToken, requireRole('MANAGER'), managerControll
  *       401: { $ref: '#/components/responses/UnauthorizedError' }
  *       403: { $ref: '#/components/responses/ForbiddenError' }
  */
-router.get('/search', authenticateToken, requireRole('MANAGER'), managerController.search);
+router.get('/search', authenticateToken, requireRole('MANAGER'), searchRateLimit, managerController.search);
 
 module.exports = router;
