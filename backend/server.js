@@ -25,10 +25,7 @@ const emergencyStopRoutes = require('./routes/emergencyStopRoutes');
 const app = express();
 const port = process.env.PORT || 5000;
 
-// helmet blocks the CSP by default in a way that breaks Swagger UI's inline
-// assets — contentSecurityPolicy: false only on this route is the standard
-// fix, rather than disabling helmet's CSP globally.
-app.use(helmet({ contentSecurityPolicy: false }));
+app.use(helmet());
 app.use(cors());
 app.use(express.json());
 app.use(morgan('dev'));
