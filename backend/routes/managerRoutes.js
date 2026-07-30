@@ -5,13 +5,6 @@ const managerController = require('../controllers/managerController');
 const { authenticateToken, requireRole } = require('../middleware/authMiddleware');
 
 const router = express.Router();
-const searchRateLimit = rateLimit({
-  windowMs: 60 * 1000,
-  limit: 60,
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
 /**
  * @swagger
  * /manager/lines:
@@ -163,6 +156,17 @@ router.get('/operators', authenticateToken, requireRole('MANAGER'), managerContr
  *       401: { $ref: '#/components/responses/UnauthorizedError' }
  *       403: { $ref: '#/components/responses/ForbiddenError' }
  */
-router.get('/search', authenticateToken, requireRole('MANAGER'), searchRateLimit, managerController.search);
+router.get(
+  '/search',
+  rateLimit({
+    windowMs: 60 * 1000,
+    limit: 60,
+    standardHeaders: true,
+    legacyHeaders: false,
+  }),
+  authenticateToken,
+  requireRole('MANAGER'),
+  managerController.search
+);
 
 module.exports = router;
