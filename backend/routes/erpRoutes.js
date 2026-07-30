@@ -78,4 +78,3 @@ router.use(authenticateToken, requireRole('ERP'));
 router.post('/work-orders', erpController.receiveWorkOrder);
 
 module.exports = router;
-/* Erp routes*/
