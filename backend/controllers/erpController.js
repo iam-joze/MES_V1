@@ -25,9 +25,6 @@ async function receiveWorkOrder(req, res) {
       message: 'work_order_id, batch_number, product, target_quantity, and unit are required',
     });
   }
-  if (!Array.isArray(workInstructions) || workInstructions.length === 0) {
-    return res.status(400).json({ message: 'work_instructions must be a non-empty array' });
-  }
 
   try {
     const existing = await prisma.job.findUnique({ where: { externalWorkOrderId: workOrderId } });
@@ -47,17 +44,24 @@ async function receiveWorkOrder(req, res) {
       });
     }
 
-    const stageRows = [...workInstructions]
-      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-      .map((step) => ({
-        stageOrder: step.order ?? 0,
-        stageName: step.station || `Step ${step.order}`,
-        stationTag: step.station || null,
-        instruction: step.instruction || null,
-        requiresQc: !!step.requires_qc,
-        estimatedDurationMinutes: step.expected_duration_min || 0,
-        status: 'PENDING',
-      }));
+    // work_instructions is optional — ERP systems generally have no concept
+    // of MES's stage-based process pipeline. When omitted, the job is
+    // created with no stages; the manager fills them in via Job Builder
+    // before activation (which already requires at least one stage and an
+    // assigned operator per stage — see jobController.updateJob).
+    const stageRows = Array.isArray(workInstructions)
+      ? [...workInstructions]
+          .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+          .map((step) => ({
+            stageOrder: step.order ?? 0,
+            stageName: step.station || `Step ${step.order}`,
+            stationTag: step.station || null,
+            instruction: step.instruction || null,
+            requiresQc: !!step.requires_qc,
+            estimatedDurationMinutes: step.expected_duration_min || 0,
+            status: 'PENDING',
+          }))
+      : [];
 
     const materialRows = Array.isArray(materialRequirements)
       ? materialRequirements.map((m, i) => ({
