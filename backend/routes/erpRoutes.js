@@ -20,7 +20,7 @@ router.use(authenticateToken, requireRole('ERP'));
  *         application/json:
  *           schema:
  *             type: object
- *             required: [work_order_id, batch_number, product, target_quantity, unit, work_instructions]
+ *             required: [work_order_id, batch_number, product, target_quantity, unit]
  *             properties:
  *               work_order_id: { type: string, description: "ERP's own work order ID, stored for de-duplication" }
  *               batch_number: { type: string }
@@ -42,7 +42,7 @@ router.use(authenticateToken, requireRole('ERP'));
  *                     wastage_pct: { type: number, nullable: true }
  *               work_instructions:
  *                 type: array
- *                 description: Ordered process stages the job will run through in MES
+ *                 description: "Optional. Ordered process stages the job will run through in MES. If omitted, the job is created with no stages — a manager must add them via Job Builder before the job can be activated."
  *                 items:
  *                   type: object
  *                   required: [order, instruction]
