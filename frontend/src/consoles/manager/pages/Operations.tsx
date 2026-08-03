@@ -11,6 +11,7 @@ import {
   Clock,
   FileEdit,
   ArrowRight,
+  Send,
 } from 'lucide-react';
 import { api } from '../../../shared/lib/api';
 import { connectSocket } from '../../../shared/lib/socket';
@@ -59,6 +60,15 @@ interface DraftJob {
   batchNumber: string | null;
   lineId: string | null;
   stages: JobStage[];
+}
+
+interface CompletedJob {
+  id: string;
+  jobId: string;
+  name: string;
+  productName: string | null;
+  source: 'MANUAL' | 'ERP';
+  batchNumber: string | null;
 }
 
 interface Alert {
@@ -123,9 +133,12 @@ export function Operations() {
   const [metrics, setMetrics] = useState<MetricsData | null>(null);
   const [jobs, setJobs] = useState<ActiveJob[] | null>(null);
   const [draftJobs, setDraftJobs] = useState<DraftJob[] | null>(null);
+  const [completedJobs, setCompletedJobs] = useState<CompletedJob[] | null>(null);
   const [alerts, setAlerts] = useState<Alert[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dismissingId, setDismissingId] = useState<string | null>(null);
+  const [sendingId, setSendingId] = useState<string | null>(null);
+  const [sendResult, setSendResult] = useState<Record<string, { ok: boolean; message: string } | undefined>>({});
 
   const loadAll = useCallback(() => {
     return Promise.all([
@@ -133,19 +146,37 @@ export function Operations() {
       api.get<MetricsData>('/manager/metrics'),
       api.get<{ jobs: ActiveJob[] }>('/manager/jobs'),
       api.get<{ jobs: DraftJob[] }>('/manager/jobs?status=DRAFT'),
+      api.get<{ jobs: CompletedJob[] }>('/manager/jobs?status=COMPLETED'),
       api.get<{ alerts: Alert[] }>('/manager/alerts'),
     ])
-      .then(([linesRes, metricsRes, jobsRes, draftJobsRes, alertsRes]) => {
+      .then(([linesRes, metricsRes, jobsRes, draftJobsRes, completedJobsRes, alertsRes]) => {
         setLines(linesRes.data.lines);
         setMetrics(metricsRes.data);
         setJobs(jobsRes.data.jobs);
         setDraftJobs(draftJobsRes.data.jobs);
+        setCompletedJobs(completedJobsRes.data.jobs);
         setAlerts(alertsRes.data.alerts);
       })
       .catch((err) => {
         setError(err?.response?.data?.message || 'Failed to load your operations data.');
       });
   }, []);
+
+  const handleSendToErp = async (jobId: string) => {
+    setSendingId(jobId);
+    setSendResult((prev) => ({ ...prev, [jobId]: undefined }));
+    try {
+      const res = await api.post<{ message: string }>(`/manager/jobs/${jobId}/send-to-erp`);
+      setSendResult((prev) => ({ ...prev, [jobId]: { ok: true, message: res.data.message } }));
+    } catch (err: any) {
+      setSendResult((prev) => ({
+        ...prev,
+        [jobId]: { ok: false, message: err?.response?.data?.message || 'Failed to send production data to ERP.' },
+      }));
+    } finally {
+      setSendingId(null);
+    }
+  };
 
   useEffect(() => {
     loadAll();
@@ -189,7 +220,7 @@ export function Operations() {
     );
   }
 
-  if (!lines || !metrics || !jobs || !draftJobs || !alerts) {
+  if (!lines || !metrics || !jobs || !draftJobs || !completedJobs || !alerts) {
     return (
       <div className="flex items-center justify-center py-24 text-slate-400">
         <Loader2 size={28} className="animate-spin" strokeWidth={2.5} />
@@ -383,6 +414,73 @@ export function Operations() {
                 </button>
               </div>
             ))}
+          </div>
+        )}
+      </div>
+
+      <div className="bg-white rounded-2xl border border-slate-200/50 shadow-card p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Send size={20} className="text-navy-600" strokeWidth={2.5} />
+            <h3 className="font-bold text-slate-900">Completed Jobs — ERP Delivery</h3>
+          </div>
+          <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">
+            {completedJobs.length} completed
+          </span>
+        </div>
+
+        {completedJobs.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-10 text-center">
+            <CheckCircle2 size={36} className="text-slate-300 mb-3" strokeWidth={2} />
+            <p className="text-sm font-semibold text-slate-700">No Completed Jobs Yet</p>
+            <p className="text-xs text-slate-500 mt-1">Once a job finishes, ERP-sourced jobs can have their production data sent here.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {completedJobs.map((job) => {
+              const result = sendResult[job.id];
+              return (
+                <div key={job.id} className="p-4 rounded-xl border border-slate-200 bg-slate-50">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="font-mono text-xs text-slate-500">{job.jobId}</span>
+                    {job.source === 'ERP' && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-info-100 text-info-700">ERP</span>
+                    )}
+                  </div>
+                  <p className="text-sm font-semibold text-slate-900 truncate">{job.name}</p>
+                  {job.batchNumber && <p className="text-xs text-slate-500 mt-0.5">Batch {job.batchNumber}</p>}
+
+                  {job.source !== 'ERP' ? (
+                    <p className="text-xs text-slate-400 mt-3 italic">Not an ERP work order — nothing to report back.</p>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => handleSendToErp(job.id)}
+                        disabled={sendingId === job.id}
+                        className="mt-3 w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-navy-900 hover:bg-navy-800 text-white text-sm font-semibold transition-all active:scale-[0.98] disabled:opacity-50"
+                      >
+                        {sendingId === job.id ? (
+                          <>
+                            <Loader2 size={14} className="animate-spin" />
+                            Sending…
+                          </>
+                        ) : (
+                          <>
+                            Send to ERP
+                            <Send size={14} />
+                          </>
+                        )}
+                      </button>
+                      {result && (
+                        <p className={`text-xs mt-2 font-medium ${result.ok ? 'text-success-600' : 'text-danger-600'}`}>
+                          {result.message}
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
