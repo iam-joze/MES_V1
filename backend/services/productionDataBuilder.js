@@ -34,11 +34,9 @@ function buildProductionDataPayload(job) {
     work_order_id: job.externalWorkOrderId,
     job_id: job.jobId,
     batch_number: job.batchNumber,
-    // No process anywhere sets a final "units produced" figure for a job —
-    // operators log quantities against blueprint-defined metrics (their
-    // names vary per blueprint, e.g. "Units Filled" vs "Juice/Pulp Output")
-    // and nothing in the schema flags which one represents finished
-    // output. Reporting 0 here rather than guessing at a metric name.
+    // Set on job completion (see runtimeController.completeStage) from the
+    // last stage's first-defined quantity metric. Jobs completed before
+    // that logic existed will still have null here, reported as 0.
     actual_produced: job.actualProducedQty ?? 0,
     // Rounded — ScrapLog.quantity is a Float on MES's side, but ERP's schema
     // requires an integer.

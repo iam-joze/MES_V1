@@ -225,6 +225,32 @@ async function resumeStage(req, res) {
   }
 }
 
+// Nothing else in MES ever sets a final "units produced" figure for a job.
+// Heuristic: the stage completing right now is the job's last stage
+// whenever jobCompleted becomes true, so its blueprint's first-defined
+// quantity metric (lowest sortOrder) is treated as the finished-output
+// metric, summed across every batch entry logged during that stage.
+async function computeProducedQty(tx, stage) {
+  if (!stage.blueprintId) return null;
+  const primaryMetric = await tx.blueprintQuantity.findFirst({
+    where: { blueprintId: stage.blueprintId },
+    orderBy: { sortOrder: 'asc' },
+  });
+  if (!primaryMetric) return null;
+
+  const sessions = await tx.processSession.findMany({
+    where: { stageId: stage.id },
+    include: { batches: true },
+  });
+  const total = sessions
+    .flatMap((s) => s.batches)
+    .reduce((sum, entry) => {
+      const value = entry.quantityData?.[primaryMetric.metricName];
+      return typeof value === 'number' ? sum + value : sum;
+    }, 0);
+  return Math.round(total);
+}
+
 async function completeStage(req, res) {
   try {
     const stage = await ensureOwnedStage(req.params.id, req.user.id);
@@ -253,7 +279,11 @@ async function completeStage(req, res) {
         where: { jobId: stage.jobId, status: { not: 'COMPLETED' }, id: { not: stage.id } },
       });
       if (remaining === 0) {
-        await tx.job.update({ where: { id: stage.jobId }, data: { status: 'COMPLETED', completedAt: now } });
+        const actualProducedQty = await computeProducedQty(tx, stage);
+        await tx.job.update({
+          where: { id: stage.jobId },
+          data: { status: 'COMPLETED', completedAt: now, ...(actualProducedQty !== null ? { actualProducedQty } : {}) },
+        });
         jobCompleted = true;
       }
     });
