@@ -52,11 +52,18 @@ function buildProductionDataPayload(job) {
       unit: m.unit,
       lot_number: null,
     })),
-    downtime_log: job.downtimeLogs.map((d) => ({
-      start: d.startedAt,
-      end: d.endedAt,
-      reason: d.reason,
-    })),
+    // Manager-logged downtime (POST /manager/jobs/:id/downtime) has no
+    // stageId and an optional end time, so it's never auto-closed by
+    // completeStage — an entry can genuinely still have endedAt: null here.
+    // ERP's schema requires a real end string, so unclosed entries are
+    // dropped rather than sent as null.
+    downtime_log: job.downtimeLogs
+      .filter((d) => d.endedAt !== null)
+      .map((d) => ({
+        start: d.startedAt,
+        end: d.endedAt,
+        reason: d.reason,
+      })),
     qc_results: qcResults,
   };
 }
