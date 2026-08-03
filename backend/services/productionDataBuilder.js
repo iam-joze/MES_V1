@@ -3,28 +3,32 @@ function buildProductionDataPayload(job) {
   const actualScrap = job.scrapLogs.reduce((sum, s) => sum + s.quantity, 0);
 
   // Real QC results — every question an operator answered, across every
-  // stage of the job, joined back to its blueprint question text.
-  const qcResults = job.stages.flatMap((stage) =>
-    stage.qcResponses.map((r) => {
-      let passFail = null;
-      if (r.passed !== null && r.passed !== undefined) {
-        passFail = r.passed ? 'pass' : 'fail';
-      } else if (
-        r.question.responseType === 'numeric' &&
-        r.question.numericMinValue != null &&
-        r.question.numericMaxValue != null &&
-        r.responseText
-      ) {
-        const value = Number(r.responseText);
-        passFail = value >= r.question.numericMinValue && value <= r.question.numericMaxValue ? 'pass' : 'fail';
-      }
-      return {
-        step: r.question.questionText,
-        'pass/fail': passFail,
-        notes: r.responseText ?? null,
-      };
-    })
-  );
+  // stage of the job, joined back to its blueprint question text. Free-text
+  // responses with no derivable pass/fail are dropped rather than sent as
+  // null — ERP's schema requires a real 'pass'/'fail' enum value per entry.
+  const qcResults = job.stages
+    .flatMap((stage) =>
+      stage.qcResponses.map((r) => {
+        let passFail = null;
+        if (r.passed !== null && r.passed !== undefined) {
+          passFail = r.passed ? 'pass' : 'fail';
+        } else if (
+          r.question.responseType === 'numeric' &&
+          r.question.numericMinValue != null &&
+          r.question.numericMaxValue != null &&
+          r.responseText
+        ) {
+          const value = Number(r.responseText);
+          passFail = value >= r.question.numericMinValue && value <= r.question.numericMaxValue ? 'pass' : 'fail';
+        }
+        return {
+          step: r.question.questionText,
+          'pass/fail': passFail,
+          notes: r.responseText ?? null,
+        };
+      })
+    )
+    .filter((r) => r['pass/fail'] !== null);
 
   return {
     work_order_id: job.externalWorkOrderId,
@@ -36,7 +40,9 @@ function buildProductionDataPayload(job) {
     // and nothing in the schema flags which one represents finished
     // output. Reporting 0 here rather than guessing at a metric name.
     actual_produced: job.actualProducedQty ?? 0,
-    actual_scrap: actualScrap,
+    // Rounded — ScrapLog.quantity is a Float on MES's side, but ERP's schema
+    // requires an integer.
+    actual_scrap: Math.round(actualScrap),
     // qty_used and lot_number still can't be populated for real: there's
     // no link from a JobMaterialRequirement row to the quantity metric(s)
     // an operator actually logs, and Lot/Batch Traceability (raw-material
