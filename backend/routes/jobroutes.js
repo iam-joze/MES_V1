@@ -167,6 +167,31 @@ router.post('/:id/scrap', jobController.logScrap);
 
 /**
  * @swagger
+ * /manager/jobs/{id}/erp-preview:
+ *   get:
+ *     summary: Preview the exact production data payload that would be sent to ERP
+ *     tags: [Manager - Jobs]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       200:
+ *         description: The ERP payload, unsent
+ *       400:
+ *         description: Job wasn't dispatched from ERP — no work order to report against
+ *       401: { $ref: '#/components/responses/UnauthorizedError' }
+ *       403: { $ref: '#/components/responses/ForbiddenError' }
+ *       404: { $ref: '#/components/responses/NotFoundError' }
+ *       409:
+ *         description: Job is not yet COMPLETED
+ */
+router.get('/:id/erp-preview', jobController.previewErpData);
+
+/**
+ * @swagger
  * /manager/jobs/{id}/send-to-erp:
  *   post:
  *     summary: Manually (re-)send a completed job's production data to ERP
