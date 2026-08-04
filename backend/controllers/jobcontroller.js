@@ -1,6 +1,7 @@
 const { PrismaClient } = require('@prisma/client');
 const { emitToExecutives } = require('../socket');
 const erpClient = require('../services/erpClient');
+const { buildProductionDataPayload, PRODUCTION_DATA_INCLUDE } = require('../services/productionDataBuilder');
 const prisma = new PrismaClient();
 
 function generateJobDisplayId() {
@@ -133,6 +134,29 @@ async function getJob(req, res) {
     return res.status(200).json(job);
   } catch (error) {
     return res.status(500).json({ message: 'Failed to load job', error: error.message });
+  }
+}
+
+async function previewErpData(req, res) {
+  try {
+    const job = await prisma.job.findUnique({
+      where: { id: req.params.id },
+      include: { line: { select: { managerId: true } }, ...PRODUCTION_DATA_INCLUDE },
+    });
+
+    if (!job || !(await canManagerAccessJob(job, req.user.id))) {
+      return res.status(404).json({ message: 'Job not found' });
+    }
+    if (job.status !== 'COMPLETED') {
+      return res.status(409).json({ message: `Job is not yet complete (current status: ${job.status})` });
+    }
+    if (job.source !== 'ERP' || !job.externalWorkOrderId) {
+      return res.status(400).json({ message: "This job wasn't dispatched from ERP — there's no work order to report data against." });
+    }
+
+    return res.status(200).json(buildProductionDataPayload(job));
+  } catch (error) {
+    return res.status(500).json({ message: 'Failed to build ERP preview', error: error.message });
   }
 }
 
@@ -308,4 +332,4 @@ async function logScrap(req, res) {
   }
 }
 
-module.exports = { createJob, getJob, updateJob, logDowntime, logScrap, sendToErp };
+module.exports = { createJob, getJob, updateJob, logDowntime, logScrap, sendToErp, previewErpData };

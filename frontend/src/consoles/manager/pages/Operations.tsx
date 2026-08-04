@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { api } from '../../../shared/lib/api';
 import { connectSocket } from '../../../shared/lib/socket';
+import { ProductionDataPreviewModal } from '../components/ProductionDataPreviewModal';
 
 interface AssignedLine {
   id: string;
@@ -139,6 +140,7 @@ export function Operations() {
   const [dismissingId, setDismissingId] = useState<string | null>(null);
   const [sendingId, setSendingId] = useState<string | null>(null);
   const [sendResult, setSendResult] = useState<Record<string, { ok: boolean; message: string } | undefined>>({});
+  const [previewJob, setPreviewJob] = useState<{ id: string; name: string } | null>(null);
 
   const loadAll = useCallback(() => {
     return Promise.all([
@@ -175,6 +177,7 @@ export function Operations() {
       }));
     } finally {
       setSendingId(null);
+      setPreviewJob(null);
     }
   };
 
@@ -455,7 +458,7 @@ export function Operations() {
                   ) : (
                     <>
                       <button
-                        onClick={() => handleSendToErp(job.id)}
+                        onClick={() => setPreviewJob({ id: job.id, name: job.name })}
                         disabled={sendingId === job.id}
                         className="mt-3 w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-navy-900 hover:bg-navy-800 text-white text-sm font-semibold transition-all active:scale-[0.98] disabled:opacity-50"
                       >
@@ -466,7 +469,7 @@ export function Operations() {
                           </>
                         ) : (
                           <>
-                            Send to ERP
+                            Preview & Send to ERP
                             <Send size={14} />
                           </>
                         )}
@@ -484,6 +487,16 @@ export function Operations() {
           </div>
         )}
       </div>
+
+      {previewJob && (
+        <ProductionDataPreviewModal
+          jobId={previewJob.id}
+          jobName={previewJob.name}
+          onClose={() => setPreviewJob(null)}
+          onSend={() => handleSendToErp(previewJob.id)}
+          sending={sendingId === previewJob.id}
+        />
+      )}
     </div>
   );
 }
