@@ -1,6 +1,96 @@
+// Nothing in the schema tags a blueprint quantity metric's role, and
+// position isn't reliable either — e.g. Fruit Pulp Extraction orders its
+// metrics [Input Fruit, Juice/Pulp Output, Waste Pomace], so "waste" isn't
+// always second. Classify by name instead:
+//   - any metric matching WASTE_METRIC_PATTERN, at any position, in any
+//     stage -> rolled into total scrap
+//   - among the remaining (non-waste) metrics in a stage, the first one
+//     (by sortOrder):
+//       - in the LAST stage  -> final output
+//       - in the FIRST stage -> raw material consumed, matched to the BOM
+//       - otherwise          -> another logged input added mid-process
+//         (e.g. water, sugar) — reported as logged, not matched to the BOM
+//   - any further non-waste metric in a stage (e.g. an intermediate output
+//     like pulp) is shown in the per-stage breakdown only — it's neither
+//     final output, waste, nor a fresh material, so it isn't rolled into
+//     any summary bucket
+const WASTE_METRIC_PATTERN = /reject|waste|scrap|loss|defect/i;
+
+function buildProductionReport(job) {
+  const stageReports = job.stages.map((stage) => {
+    const quantities = stage.blueprint?.quantities ?? [];
+    const unitByMetric = Object.fromEntries(quantities.map((q) => [q.metricName, q.unitLabel]));
+
+    const batches = stage.sessions
+      .flatMap((session) =>
+        session.batches.map((entry) => ({
+          batchNumber: entry.batchNumber,
+          loggedAt: entry.loggedAt,
+          operatorName: session.operator?.name ?? null,
+          quantityData: entry.quantityData,
+        }))
+      )
+      .sort((a, b) => new Date(a.loggedAt) - new Date(b.loggedAt));
+
+    const metrics = quantities.map((q) => {
+      const total = batches.reduce((sum, b) => {
+        const value = b.quantityData?.[q.metricName];
+        return typeof value === 'number' ? sum + value : sum;
+      }, 0);
+      return { name: q.metricName, unit: q.unitLabel ?? '', total: Math.round(total * 100) / 100 };
+    });
+
+    return { stageOrder: stage.stageOrder, stageName: stage.stageName, metrics, batches, unitByMetric };
+  });
+
+  let actualProduced = 0;
+  const materialsConsumed = [];
+  let scrapFromStages = 0;
+  const scrapBreakdown = [];
+
+  stageReports.forEach((stage, index) => {
+    const isLast = index === stageReports.length - 1;
+    const isFirst = index === 0;
+
+    const wasteMetrics = stage.metrics.filter((m) => WASTE_METRIC_PATTERN.test(m.name));
+    const nonWasteMetrics = stage.metrics.filter((m) => !WASTE_METRIC_PATTERN.test(m.name));
+    const primary = nonWasteMetrics[0];
+
+    if (primary) {
+      if (isLast) {
+        actualProduced += primary.total;
+      } else if (isFirst) {
+        const requirement = job.materialRequirements.find((m) => m.name.toLowerCase() === primary.name.toLowerCase());
+        materialsConsumed.push({ name: primary.name, qtyUsed: primary.total, unit: requirement?.unit ?? primary.unit, source: stage.stageName });
+      } else {
+        materialsConsumed.push({ name: primary.name, qtyUsed: primary.total, unit: primary.unit, source: stage.stageName });
+      }
+    }
+
+    for (const waste of wasteMetrics) {
+      scrapFromStages += waste.total;
+      scrapBreakdown.push({ source: stage.stageName, metric: waste.name, quantity: waste.total, unit: waste.unit });
+    }
+  });
+
+  const scrapFromLogs = job.scrapLogs.reduce((sum, s) => sum + s.quantity, 0);
+  if (scrapFromLogs > 0) {
+    scrapBreakdown.push({ source: 'Manager-logged waste', metric: 'ScrapLog', quantity: Math.round(scrapFromLogs * 100) / 100, unit: 'mixed' });
+  }
+
+  return {
+    stages: stageReports.map(({ unitByMetric, ...rest }) => rest),
+    summary: {
+      actualProduced: Math.round(actualProduced),
+      actualScrap: Math.round(scrapFromStages + scrapFromLogs),
+      scrapBreakdown,
+      materialsConsumed,
+    },
+  };
+}
+
 function buildProductionDataPayload(job) {
-  // Real scrap total — ScrapLog rows are logged by managers per job/stage.
-  const actualScrap = job.scrapLogs.reduce((sum, s) => sum + s.quantity, 0);
+  const report = buildProductionReport(job);
 
   // Real QC results — every question an operator answered, across every
   // stage of the job, joined back to its blueprint question text. Free-text
@@ -34,21 +124,14 @@ function buildProductionDataPayload(job) {
     work_order_id: job.externalWorkOrderId,
     job_id: job.jobId,
     batch_number: job.batchNumber,
-    // Set on job completion (see runtimeController.completeStage) from the
-    // last stage's first-defined quantity metric. Jobs completed before
-    // that logic existed will still have null here, reported as 0.
-    actual_produced: job.actualProducedQty ?? 0,
-    // Rounded — ScrapLog.quantity is a Float on MES's side, but ERP's schema
-    // requires an integer.
-    actual_scrap: Math.round(actualScrap),
-    // qty_used and lot_number still can't be populated for real: there's
-    // no link from a JobMaterialRequirement row to the quantity metric(s)
-    // an operator actually logs, and Lot/Batch Traceability (raw-material
-    // lot capture) hasn't been built. name/unit are the real planned
-    // requirement; the rest is honestly null rather than estimated.
-    materials_consumed: job.materialRequirements.map((m) => ({
+    actual_produced: report.summary.actualProduced,
+    actual_scrap: report.summary.actualScrap,
+    // qty_used and lot_number: qty_used is now the real total logged at the
+    // material's stage. lot_number stays null — raw-material lot capture
+    // hasn't been built anywhere in MES.
+    materials_consumed: report.summary.materialsConsumed.map((m) => ({
       name: m.name,
-      qty_used: null,
+      qty_used: m.qtyUsed,
       unit: m.unit,
       lot_number: null,
     })),
@@ -73,11 +156,19 @@ const PRODUCTION_DATA_INCLUDE = {
   downtimeLogs: true,
   scrapLogs: true,
   stages: {
+    orderBy: { stageOrder: 'asc' },
     include: {
       faults: true,
       qcResponses: { include: { question: true } },
+      blueprint: { include: { quantities: { orderBy: { sortOrder: 'asc' } } } },
+      sessions: {
+        include: {
+          operator: { select: { name: true } },
+          batches: { orderBy: { batchNumber: 'asc' } },
+        },
+      },
     },
   },
 };
 
-module.exports = { buildProductionDataPayload, PRODUCTION_DATA_INCLUDE };
+module.exports = { buildProductionDataPayload, buildProductionReport, PRODUCTION_DATA_INCLUDE };

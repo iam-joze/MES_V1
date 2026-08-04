@@ -1,7 +1,7 @@
 const { PrismaClient } = require('@prisma/client');
 const { emitToExecutives } = require('../socket');
 const erpClient = require('../services/erpClient');
-const { buildProductionDataPayload, PRODUCTION_DATA_INCLUDE } = require('../services/productionDataBuilder');
+const { buildProductionDataPayload, buildProductionReport, PRODUCTION_DATA_INCLUDE } = require('../services/productionDataBuilder');
 const prisma = new PrismaClient();
 
 function generateJobDisplayId() {
@@ -154,7 +154,9 @@ async function previewErpData(req, res) {
       return res.status(400).json({ message: "This job wasn't dispatched from ERP — there's no work order to report data against." });
     }
 
-    return res.status(200).json(buildProductionDataPayload(job));
+    const payload = buildProductionDataPayload(job);
+    const report = buildProductionReport(job);
+    return res.status(200).json({ ...payload, stages: report.stages, scrap_breakdown: report.summary.scrapBreakdown });
   } catch (error) {
     return res.status(500).json({ message: 'Failed to build ERP preview', error: error.message });
   }

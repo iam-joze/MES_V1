@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { X, Loader2, AlertTriangle, Package, Send } from 'lucide-react';
+import { X, Loader2, AlertTriangle, Package, Send, Layers } from 'lucide-react';
 import { api } from '../../../shared/lib/api';
 
 interface MaterialConsumed {
@@ -7,6 +7,7 @@ interface MaterialConsumed {
   qty_used: number | null;
   unit: string;
   lot_number: string | null;
+  source?: string;
 }
 
 interface DowntimeEntry {
@@ -21,6 +22,33 @@ interface QcResult {
   notes: string | null;
 }
 
+interface StageMetric {
+  name: string;
+  unit: string;
+  total: number;
+}
+
+interface StageBatch {
+  batchNumber: number;
+  loggedAt: string;
+  operatorName: string | null;
+  quantityData: Record<string, number>;
+}
+
+interface StageReport {
+  stageOrder: number;
+  stageName: string;
+  metrics: StageMetric[];
+  batches: StageBatch[];
+}
+
+interface ScrapBreakdownEntry {
+  source: string;
+  metric: string;
+  quantity: number;
+  unit: string;
+}
+
 interface ErpPayload {
   work_order_id: string | null;
   job_id: string;
@@ -30,6 +58,8 @@ interface ErpPayload {
   materials_consumed: MaterialConsumed[];
   downtime_log: DowntimeEntry[];
   qc_results: QcResult[];
+  stages: StageReport[];
+  scrap_breakdown: ScrapBreakdownEntry[];
 }
 
 interface ProductionDataPreviewModalProps {
@@ -63,11 +93,11 @@ export function ProductionDataPreviewModal({ jobId, jobName, onClose, onSend, se
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose} />
 
-      <div className="relative w-full max-w-2xl bg-white rounded-card shadow-2xl overflow-hidden border border-slate-200 max-h-[88vh] flex flex-col">
+      <div className="relative w-full max-w-3xl bg-white rounded-card shadow-2xl overflow-hidden border border-slate-200 max-h-[90vh] flex flex-col">
         <div className="px-6 py-4 bg-navy-950 flex-shrink-0">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-bold text-white">Preview: Production Data to ERP</h2>
+              <h2 className="text-lg font-bold text-white">Production Report — Preview Before Sending to ERP</h2>
               <p className="text-slate-400 text-xs mt-0.5">{jobName}</p>
             </div>
             <button onClick={onClose} className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
@@ -91,17 +121,107 @@ export function ProductionDataPreviewModal({ jobId, jobName, onClose, onSend, se
           )}
 
           {payload && (
-            <div className="space-y-5">
+            <div className="space-y-6">
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <PreviewStat label="Work Order" value={payload.work_order_id ?? '—'} />
                 <PreviewStat label="Batch" value={payload.batch_number ?? '—'} />
-                <PreviewStat label="Produced" value={String(payload.actual_produced)} />
-                <PreviewStat label="Scrap" value={String(payload.actual_scrap)} />
+                <PreviewStat label="Produced" value={String(payload.actual_produced)} tone="success" />
+                <PreviewStat label="Scrap" value={String(payload.actual_scrap)} tone="danger" />
               </div>
+
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <Layers size={14} className="text-slate-400" />
+                  <h3 className="text-sm font-bold text-slate-900">Production Process</h3>
+                  <span className="text-xs text-slate-400">({payload.stages.length} stages)</span>
+                </div>
+                <div className="space-y-3">
+                  {[...payload.stages]
+                    .sort((a, b) => a.stageOrder - b.stageOrder)
+                    .map((stage) => (
+                      <div key={stage.stageOrder} className="rounded-xl border border-slate-200 overflow-hidden">
+                        <div className="px-3 py-2 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                          <span className="text-sm font-semibold text-slate-900">
+                            #{stage.stageOrder} {stage.stageName}
+                          </span>
+                          <div className="flex gap-1.5">
+                            {stage.metrics.map((m) => (
+                              <span
+                                key={m.name}
+                                className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                                  /reject|waste|scrap|loss|defect/i.test(m.name)
+                                    ? 'bg-danger-100 text-danger-700 border-danger-200'
+                                    : 'bg-slate-100 text-slate-600 border-slate-200'
+                                }`}
+                              >
+                                {m.name}: {m.total} {m.unit}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                        {stage.batches.length === 0 ? (
+                          <EmptyRow>No batches logged at this stage.</EmptyRow>
+                        ) : (
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="text-left text-xs font-bold text-slate-400 uppercase tracking-wide">
+                                <th className="pl-3 pb-1.5 pt-2">Batch</th>
+                                <th className="pb-1.5 pt-2">Operator</th>
+                                <th className="pb-1.5 pt-2">Logged</th>
+                                <th className="pb-1.5 pt-2 pr-3">Values</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {stage.batches.map((b) => (
+                                <tr key={b.batchNumber} className="border-t border-slate-100">
+                                  <td className="pl-3 py-1.5 text-slate-500">#{b.batchNumber}</td>
+                                  <td className="py-1.5 text-slate-500">{b.operatorName ?? 'Unassigned'}</td>
+                                  <td className="py-1.5 text-slate-500">{new Date(b.loggedAt).toLocaleString()}</td>
+                                  <td className="py-1.5 pr-3 text-slate-900">
+                                    {Object.entries(b.quantityData)
+                                      .map(([k, v]) => `${k}: ${v}`)
+                                      .join(' · ')}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        )}
+                      </div>
+                    ))}
+                </div>
+              </div>
+
+              <PreviewSection title="Scrap Breakdown" count={payload.scrap_breakdown.length}>
+                {payload.scrap_breakdown.length === 0 ? (
+                  <EmptyRow>No scrap or waste recorded on this job.</EmptyRow>
+                ) : (
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-left text-xs font-bold text-slate-400 uppercase tracking-wide">
+                        <th className="pb-1.5 pr-3">Source</th>
+                        <th className="pb-1.5 pr-3">Metric</th>
+                        <th className="pb-1.5">Quantity</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {payload.scrap_breakdown.map((s, i) => (
+                        <tr key={i} className="border-t border-slate-100">
+                          <td className="py-1.5 pr-3 text-slate-900">{s.source}</td>
+                          <td className="py-1.5 pr-3 text-slate-500">{s.metric}</td>
+                          <td className="py-1.5 text-slate-500">
+                            {s.quantity} {s.unit}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </PreviewSection>
 
               <PreviewSection title="Materials Consumed" count={payload.materials_consumed.length}>
                 {payload.materials_consumed.length === 0 ? (
-                  <EmptyRow>No material requirements on this job.</EmptyRow>
+                  <EmptyRow>No materials logged on this job.</EmptyRow>
                 ) : (
                   <table className="w-full text-sm">
                     <thead>
@@ -109,7 +229,7 @@ export function ProductionDataPreviewModal({ jobId, jobName, onClose, onSend, se
                         <th className="pb-1.5 pr-3">Material</th>
                         <th className="pb-1.5 pr-3">Qty Used</th>
                         <th className="pb-1.5 pr-3">Unit</th>
-                        <th className="pb-1.5">Lot</th>
+                        <th className="pb-1.5">Logged At</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -118,7 +238,7 @@ export function ProductionDataPreviewModal({ jobId, jobName, onClose, onSend, se
                           <td className="py-1.5 pr-3 text-slate-900">{m.name}</td>
                           <td className="py-1.5 pr-3 text-slate-500">{m.qty_used ?? 'not tracked'}</td>
                           <td className="py-1.5 pr-3 text-slate-500">{m.unit}</td>
-                          <td className="py-1.5 text-slate-500">{m.lot_number ?? '—'}</td>
+                          <td className="py-1.5 text-slate-500">{m.source ?? '—'}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -219,11 +339,12 @@ export function ProductionDataPreviewModal({ jobId, jobName, onClose, onSend, se
   );
 }
 
-function PreviewStat({ label, value }: { label: string; value: string }) {
+function PreviewStat({ label, value, tone }: { label: string; value: string; tone?: 'success' | 'danger' }) {
+  const valueColor = tone === 'success' ? 'text-success-700' : tone === 'danger' ? 'text-danger-700' : 'text-slate-900';
   return (
     <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">{label}</p>
-      <p className="text-sm font-bold text-slate-900 mt-0.5 truncate">{value}</p>
+      <p className={`text-sm font-bold mt-0.5 truncate ${valueColor}`}>{value}</p>
     </div>
   );
 }
