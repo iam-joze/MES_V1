@@ -52,7 +52,9 @@ export function IssueLogger({ faultCategories, stageName, jobId, jobName: _jobNa
       <div className="px-4 py-3 bg-navy-50 border-b border-navy-100">
         <div className="flex items-center gap-2 text-sm text-navy-700">
           <Package size={16} strokeWidth={2.5} />
-          <span className="font-semibold">{jobId}</span>
+          <span className="font-semibold">{jobName}</span>
+          <span className="text-navy-400">·</span>
+          <span className="text-navy-500">{jobId}</span>
           <span className="text-navy-400">·</span>
           <span>{stageName}</span>
           {productName && (
