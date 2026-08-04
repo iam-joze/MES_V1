@@ -4,9 +4,14 @@
 // always second. Classify by name instead:
 //   - any metric matching WASTE_METRIC_PATTERN, at any position, in any
 //     stage -> rolled into total scrap
-//   - among the remaining (non-waste) metrics in a stage, the first one
-//     (by sortOrder):
-//       - in the LAST stage  -> final output
+//   - final output: prefer the first metric anywhere matching
+//     FILL_METRIC_PATTERN — filling is the point a unit actually becomes a
+//     finished good, and later stages (labeling, QC inspection) may log a
+//     different count or nothing at all, so the true last stage isn't a
+//     reliable place to look. Falls back to the last stage's first
+//     non-waste metric only if nothing matches "fill" anywhere.
+//   - among each stage's remaining non-waste metrics (excluding whichever
+//     one was already claimed as final output), the first one:
 //       - in the FIRST stage -> raw material consumed, matched to the BOM
 //       - otherwise          -> another logged input added mid-process
 //         (e.g. water, sugar) — reported as logged, not matched to the BOM
@@ -15,6 +20,7 @@
 //     final output, waste, nor a fresh material, so it isn't rolled into
 //     any summary bucket
 const WASTE_METRIC_PATTERN = /reject|waste|scrap|loss|defect/i;
+const FILL_METRIC_PATTERN = /fill/i;
 
 function buildProductionReport(job) {
   const stageReports = job.stages.map((stage) => {
@@ -43,23 +49,49 @@ function buildProductionReport(job) {
     return { stageOrder: stage.stageOrder, stageName: stage.stageName, metrics, batches, unitByMetric };
   });
 
+  // Find the definitive "produced" metric: the first fill-named metric in
+  // stage order, anywhere in the job; otherwise the last stage's first
+  // non-waste metric.
+  let producedStageIndex = -1;
+  let producedMetricName = null;
+  for (let i = 0; i < stageReports.length; i++) {
+    const fillMetric = stageReports[i].metrics.find((m) => !WASTE_METRIC_PATTERN.test(m.name) && FILL_METRIC_PATTERN.test(m.name));
+    if (fillMetric) {
+      producedStageIndex = i;
+      producedMetricName = fillMetric.name;
+      break;
+    }
+  }
+  if (producedMetricName === null && stageReports.length > 0) {
+    const lastIndex = stageReports.length - 1;
+    const fallback = stageReports[lastIndex].metrics.find((m) => !WASTE_METRIC_PATTERN.test(m.name));
+    if (fallback) {
+      producedStageIndex = lastIndex;
+      producedMetricName = fallback.name;
+    }
+  }
+
   let actualProduced = 0;
   const materialsConsumed = [];
   let scrapFromStages = 0;
   const scrapBreakdown = [];
 
   stageReports.forEach((stage, index) => {
-    const isLast = index === stageReports.length - 1;
     const isFirst = index === 0;
 
     const wasteMetrics = stage.metrics.filter((m) => WASTE_METRIC_PATTERN.test(m.name));
-    const nonWasteMetrics = stage.metrics.filter((m) => !WASTE_METRIC_PATTERN.test(m.name));
-    const primary = nonWasteMetrics[0];
+    const nonWasteMetrics = stage.metrics
+      .filter((m) => !WASTE_METRIC_PATTERN.test(m.name))
+      .filter((m) => !(index === producedStageIndex && m.name === producedMetricName));
 
+    if (index === producedStageIndex) {
+      const produced = stage.metrics.find((m) => m.name === producedMetricName);
+      if (produced) actualProduced += produced.total;
+    }
+
+    const primary = nonWasteMetrics[0];
     if (primary) {
-      if (isLast) {
-        actualProduced += primary.total;
-      } else if (isFirst) {
+      if (isFirst) {
         const requirement = job.materialRequirements.find((m) => m.name.toLowerCase() === primary.name.toLowerCase());
         materialsConsumed.push({ name: primary.name, qtyUsed: primary.total, unit: requirement?.unit ?? primary.unit, source: stage.stageName });
       } else {
