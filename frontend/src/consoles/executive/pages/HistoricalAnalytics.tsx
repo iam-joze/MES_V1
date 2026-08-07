@@ -338,6 +338,12 @@ function DowntimeFaultsTab({ downtime, faults }: { downtime: DowntimeRecord[]; f
 }
 
 function ScrapTrackingTab({ scrapData, batchData }: { scrapData: ScrapRecord[]; batchData: BatchLogRow[] }) {
+  // Sums s.quantity across all matching records regardless of s.unit — if
+  // scrap for the same waste type or line is ever logged in mixed units
+  // (kg alongside liters or units), this total blends them into one number
+  // with no unit conversion. Fine today if scrap logging happens to be
+  // consistent per waste type/line in practice, but worth checking before
+  // trusting this total if that assumption ever breaks.
   const byWasteType = useMemo(() => {
     const agg: Record<string, number> = {};
     scrapData.forEach((s) => {
@@ -630,6 +636,11 @@ export function HistoricalAnalytics() {
 
   const handleExport = () => {
     if (!data) return;
+    // Only the free-text-ish fields (job name, fault title, downtime
+    // reason) are quoted — lineName, jobId, and the other fields below
+    // aren't escaped at all. A line name or product name that ever
+    // contains a comma would silently shift every column after it in the
+    // exported CSV.
     const lines = [
       'Type,Reference,Line,Date,Value,Details',
       ...data.jobHistory.map(
